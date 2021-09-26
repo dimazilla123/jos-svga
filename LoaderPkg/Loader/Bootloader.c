@@ -72,7 +72,7 @@ HandleProtocolFallback (
 }
 
 STATIC
-void
+VOID
 DumpVideoMode (
   IN EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *info
   )
@@ -158,7 +158,9 @@ InitGraphics (
   }
 
   if (acceptable != -1)
+  {
     GraphicsOutput->SetMode(GraphicsOutput, acceptable);
+  }
 
   //
   // Fill screen with black.
