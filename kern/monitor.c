@@ -7,6 +7,7 @@
 #include <inc/assert.h>
 #include <inc/env.h>
 #include <inc/x86.h>
+#include <inc/types.h>
 
 #include <kern/console.h>
 #include <kern/monitor.h>
@@ -20,6 +21,8 @@ int mon_help(int argc, char **argv, struct Trapframe *tf);
 int mon_kerninfo(int argc, char **argv, struct Trapframe *tf);
 int mon_backtrace(int argc, char **argv, struct Trapframe *tf);
 
+int mon_test_backtrace(int argc, char **argv, struct Trapframe *tf);
+
 struct Command {
     const char *name;
     const char *desc;
@@ -31,6 +34,7 @@ static struct Command commands[] = {
         {"help", "Display this list of commands", mon_help},
         {"kerninfo", "Display information about the kernel", mon_kerninfo},
         {"backtrace", "Print stack backtrace", mon_backtrace},
+        {"test_backtrace", "Print stack backtrace after recursive function", mon_test_backtrace},
 };
 #define NCOMMANDS (sizeof(commands) / sizeof(commands[0]))
 
@@ -57,9 +61,52 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf) {
     return 0;
 }
 
+struct StackFrameFooter;
+
+struct StackFrameFooter
+{
+    struct StackFrameFooter *next;
+    void* ret;
+};
+
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf) {
-    // LAB 2: Your code here
+    cprintf("Stack backtrace:\n");
+    struct StackFrameFooter *frame = (struct StackFrameFooter*)read_rbp();
+
+    while (frame != NULL)
+    {
+        cprintf("    rbp %p rip %p\n", frame, frame->ret);
+        frame = frame->next;
+    }
+
+    return 0;
+}
+
+static void test_backtrace(uint32_t depth)
+{
+    if (depth == 0)
+    {
+        mon_backtrace(0, 0, NULL);
+        return;
+    }
+    test_backtrace(--depth);
+}
+
+int
+mon_test_backtrace(int argc, char **argv, struct Trapframe *tf) {
+    if (argc < 2)
+    {
+        cprintf("Expected recursion depth\n");
+        return 0;
+    }
+    uint32_t depth = 0;
+    for (const char *s = argv[1]; '0' <= *s && *s <= '9'; ++s)
+        depth = 10 * depth + (*s - '0');
+    cprintf("depth = %u\n", depth);
+
+    test_backtrace(depth);
+
 
     return 0;
 }
