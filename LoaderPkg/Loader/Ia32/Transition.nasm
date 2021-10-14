@@ -2,44 +2,44 @@
 ; Copyright (c) 2020, ISP RAS. All rights reserved.
 ; SPDX-License-Identifier: BSD-3-Clause
 
-#define CR0_PE 0x00000001 ; Protection Enable
-#define CR0_MP 0x00000002 ; Monitor coProcessor
-#define CR0_EM 0x00000004 ; Emulation
-#define CR0_TS 0x00000008 ; Task Switched
-#define CR0_ET 0x00000010 ; Extension Type
-#define CR0_NE 0x00000020 ; Numeric Errror
-#define CR0_WP 0x00010000 ; Write Protect
-#define CR0_AM 0x00040000 ; Alignment Mask
-#define CR0_NW 0x20000000 ; Not Writethrough
-#define CR0_CD 0x40000000 ; Cache Disable
-#define CR0_PG 0x80000000 ; Paging
+CR0_PE         equ 0x00000001 ; Protection Enable
+CR0_MP         equ 0x00000002 ; Monitor coProcessor
+CR0_EM         equ 0x00000004 ; Emulation
+CR0_TS         equ 0x00000008 ; Task Switched
+CR0_ET         equ 0x00000010 ; Extension Type
+CR0_NE         equ 0x00000020 ; Numeric Errror
+CR0_WP         equ 0x00010000 ; Write Protect
+CR0_AM         equ 0x00040000 ; Alignment Mask
+CR0_NW         equ 0x20000000 ; Not Writethrough
+CR0_CD         equ 0x40000000 ; Cache Disable
+CR0_PG         equ 0x80000000 ; Paging
 
-#define CR4_VME        0x00000001 ; V86 Mode Extensions
-#define CR4_PVI        0x00000002 ; Protected-Mode Virtual Interrupts
-#define CR4_TSD        0x00000004 ; Time Stamp Disable
-#define CR4_DE         0x00000008 ; Debugging Extensions
-#define CR4_PSE        0x00000010 ; Page Size Extensions
-#define CR4_PAE        0x00000020 ; Physical address extension
-#define CR4_MCE        0x00000040 ; Machine Check Enable
-#define CR4_PGE        0x00000080 ; Page Global Enabled
-#define CR4_PCE        0x00000100 ; Performance counter enable
-#define CR4_OSFXSR     0x00000200 ; FXSAVE/FXRSTOR/SSE enable
-#define CR4_OSXMMEXCPT 0x00000400 ; Enable SSE exceptions
-#define CR4_UMIP       0x00000800 ; User-Mode Instruction Prevention
-#define CR4_LA57       0x00001000 ; Level-5 paging
-#define CR4_VMXE       0x00002000 ; Virtual Machine Extensions Enable
-#define CR4_SMXE       0x00004000 ; Safer Mode Extensions Enable
-#define CR4_FSGSBASE   0x00010000 ; Enable FSGSBASE instructions
-#define CR4_PCIDE      0x00020000 ; PCID Enable
-#define CR4_OSXSAVE    0x00040000 ; XSAVE Enable
-#define CR4_SMEP       0x00100000 ; SMEP Enable
-#define CR4_SMAP       0x00200000 ; SMAP Enable
-#define CR4_PKE        0x00400000 ; Protected Key Enable
+CR4_VME        equ 0x00000001 ; V86 Mode Extensions
+CR4_PVI        equ 0x00000002 ; Protected-Mode Virtual Interrupts
+CR4_TSD        equ 0x00000004 ; Time Stamp Disable
+CR4_DE         equ 0x00000008 ; Debugging Extensions
+CR4_PSE        equ 0x00000010 ; Page Size Extensions
+CR4_PAE        equ 0x00000020 ; Physical address extension
+CR4_MCE        equ 0x00000040 ; Machine Check Enable
+CR4_PGE        equ 0x00000080 ; Page Global Enabled
+CR4_PCE        equ 0x00000100 ; Performance counter enable
+CR4_OSFXSR     equ 0x00000200 ; FXSAVE/FXRSTOR/SSE enable
+CR4_OSXMMEXCPT equ 0x00000400 ; Enable SSE exceptions
+CR4_UMIP       equ 0x00000800 ; User-Mode Instruction Prevention
+CR4_LA57       equ 0x00001000 ; Level-5 paging
+CR4_VMXE       equ 0x00002000 ; Virtual Machine Extensions Enable
+CR4_SMXE       equ 0x00004000 ; Safer Mode Extensions Enable
+CR4_FSGSBASE   equ 0x00010000 ; Enable FSGSBASE instructions
+CR4_PCIDE      equ 0x00020000 ; PCID Enable
+CR4_OSXSAVE    equ 0x00040000 ; XSAVE Enable
+CR4_SMEP       equ 0x00100000 ; SMEP Enable
+CR4_SMAP       equ 0x00200000 ; SMAP Enable
+CR4_PKE        equ 0x00400000 ; Protected Key Enable
 
-#define EFER_MSR 0xC0000080
-#define EFER_LME (1ULL << 8)
-#define EFER_LMA (1ULL << 10)
-#define EFER_NXE (1ULL << 11)
+EFER_MSR equ 0xC0000080
+EFER_LME equ (1 << 8)
+EFER_LMA equ (1 << 10)
+EFER_NXE equ (1 << 11)
 
 bits 32
 
@@ -144,7 +144,7 @@ AsmWithOurGdt:
 
     ; 3. Reset all the data segment registers to linear mode (LINEAR_DATA_SEL).
     ; LAB 2: Your code here:
-    mov eax, LINEAR_CODE_SEL
+    mov eax, LINEAR_DATA_SEL
     mov ds, eax
     mov ss, eax
     mov es, eax
@@ -168,7 +168,7 @@ AsmWithOurGdt:
     ; LAB 2: Your code here:
     mov ecx, EFER_MSR
     rdmsr
-    or eax, EFER_NXE & EFER_LME
+    or eax, EFER_NXE | EFER_LME
     wrmsr
 
     ; 7. Enable paging as it is required in 64-bit mode.
