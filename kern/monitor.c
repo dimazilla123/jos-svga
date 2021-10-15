@@ -20,8 +20,8 @@
 int mon_help(int argc, char **argv, struct Trapframe *tf);
 int mon_kerninfo(int argc, char **argv, struct Trapframe *tf);
 int mon_backtrace(int argc, char **argv, struct Trapframe *tf);
-
 int mon_test_backtrace(int argc, char **argv, struct Trapframe *tf);
+int mon_test_debug_info(int argc, char **argv, struct Trapframe *tf);
 
 struct Command {
     const char *name;
@@ -35,6 +35,7 @@ static struct Command commands[] = {
         {"kerninfo", "Display information about the kernel", mon_kerninfo},
         {"backtrace", "Print stack backtrace", mon_backtrace},
         {"test_backtrace", "Print stack backtrace after recursive function", mon_test_backtrace},
+        {"test_debug_info", "Test procedure of getting debug line info", mon_test_debug_info},
 };
 #define NCOMMANDS (sizeof(commands) / sizeof(commands[0]))
 
@@ -66,7 +67,7 @@ struct StackFrameFooter;
 struct StackFrameFooter
 {
     struct StackFrameFooter *next;
-    void* ret;
+    uintptr_t ret;
 };
 
 int
@@ -74,23 +75,38 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf) {
     cprintf("Stack backtrace:\n");
     struct StackFrameFooter *frame = (struct StackFrameFooter*)read_rbp();
 
+    //int res = debuginfo_rip((uintptr_t)&mon_help, &info);
+
     while (frame != NULL)
     {
-        cprintf("    rbp %p rip %p\n", frame, frame->ret);
+        struct Ripdebuginfo info = {};
+        int res = debuginfo_rip(frame->ret, &info);
+        cprintf("    rbp %08lx rip %08lx\n", (uintptr_t)frame, frame->ret);
+        if (!res)
+            cprintf("    %s:%d: %s+%ld\n", info.rip_file, info.rip_line, info.rip_fn_name, frame->ret - info.rip_fn_addr);
+        //cprintf("    res = %d, line = %d\n", res, info.rip_line);
         frame = frame->next;
     }
 
     return 0;
 }
 
-static void test_backtrace(uint32_t depth)
+int mon_test_debug_info(int argc, char **argv, struct Trapframe *tf)
+{
+    struct Ripdebuginfo info = {};
+    int res = debuginfo_rip((uintptr_t)&mon_test_debug_info, &info);
+    cprintf("res = %d line = %d\n", res, info.rip_line);
+    return 0;
+}
+
+static void test_mon_backtrace(uint32_t depth)
 {
     if (depth == 0)
     {
         mon_backtrace(0, 0, NULL);
         return;
     }
-    test_backtrace(--depth);
+    test_mon_backtrace(--depth);
 }
 
 int
@@ -105,8 +121,7 @@ mon_test_backtrace(int argc, char **argv, struct Trapframe *tf) {
         depth = 10 * depth + (*s - '0');
     cprintf("depth = %u\n", depth);
 
-    test_backtrace(depth);
-
+    test_mon_backtrace(depth);
 
     return 0;
 }
