@@ -12,6 +12,7 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
+#include <kern/env.h>
 
 #define WHITESPACE "\t\r\n "
 #define MAXARGS    16
