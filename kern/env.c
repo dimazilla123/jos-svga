@@ -90,6 +90,15 @@ env_init(void) {
 
     // LAB 3: Your code here
 
+    env_free_list = &env_array[0];
+    for (int i = 0; i < NENV; ++i)
+    {
+        memset(&env_array[i], 0, sizeof(env_array[i]));
+        env_array[i].env_status = ENV_FREE;
+        env_array[i].env_type = ENV_TYPE_KERNEL;
+        env_array[i].env_link = &env_array[i + 1];
+    }
+    env_array[NENV - 1].env_link = NULL;
 }
 
 /* Allocates and initializes a new environment.
@@ -146,7 +155,13 @@ env_alloc(struct Env **newenv_store, envid_t parent_id, enum EnvType type) {
     env->env_tf.tf_cs = GD_KT;
 
     // LAB 3: Your code here:
-    //static uintptr_t stack_top = 0x2000000;
+    static uintptr_t stack_top = 0x2000000;
+    #if 1
+    int32_t env_num = (env - env_array) / sizeof(*env);
+    env->env_tf.tf_rsp = stack_top + env_num * PAGE_SIZE * 2;
+    #else
+    env->env_tf.tf_rsp = stack_top += PAGE_SIZE * 2;
+    #endif
 #else
     env->env_tf.tf_ds = GD_UD | 3;
     env->env_tf.tf_es = GD_UD | 3;
@@ -221,6 +236,27 @@ static int
 load_icode(struct Env *env, uint8_t *binary, size_t size) {
     // LAB 3: Your code here
 
+    struct Elf *header = (struct Elf*)binary;
+    if (
+        header->e_magic != ELF_MAGIC
+     || size < sizeof(&header)
+     || header->e_machine != EM_X86_64)
+        return -E_INVALID_EXE;
+
+    for (UINT16 i = 0; i < header->e_phnum; ++i)
+    {
+        struct Proghdr *ph = (struct Proghdr*)(binary + header->e_phoff + header->e_phentsize * i);
+        if (ph->p_type != ELF_PROG_LOAD)
+            continue;
+        if (ph->p_filesz > ph->p_memsz)
+            return -E_INVALID_EXE;
+        memset((void*)ph->p_va, 0, ph->p_memsz);
+        memcpy((void*)ph->p_va, binary + ph->p_offset, ph->p_filesz);
+    }
+
+    env->binary = binary;
+    env->env_tf.tf_rip = header->e_entry;
+
     return 0;
 }
 
@@ -234,6 +270,21 @@ void
 env_create(uint8_t *binary, size_t size, enum EnvType type) {
     // LAB 3: Your code here
 
+    struct Env *env = NULL;
+    int res = env_alloc(&env, 0, type);
+    if (res < 0)
+    {
+        panic("env_create: %i", -res);
+        return;
+    }
+
+    if ((res = load_icode(env, binary, size)) < 0)
+    {
+        panic("env_create: %i", -res);
+        env_free(env);
+        return;
+    }
+    //env->env_type = type;
 }
 
 
@@ -354,6 +405,26 @@ env_run(struct Env *env) {
     }
 
     // LAB 3: Your code here
+
+    if (curenv)
+    {
+        switch (curenv->env_status)
+        {
+            case ENV_RUNNING:
+            {
+                curenv->env_type = ENV_RUNNABLE;
+            } break;
+            default:
+            {
+
+            } break;
+        }
+    }
+    curenv = env;
+    env->env_type = ENV_RUNNING;
+    env->env_runs++;
+
+    env_pop_tf(&env->env_tf);
 
     while(1) {}
 }
