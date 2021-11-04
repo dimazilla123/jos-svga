@@ -570,6 +570,13 @@ address_by_fname(const struct Dwarf_Addrs *addrs, const char *fname, uintptr_t *
                     uintptr_t low_pc = 0;
                     // LAB 3: Your code here:
 
+                    
+                    do {
+                        abbrev_entry += dwarf_read_uleb128(abbrev_entry, &name);
+                        abbrev_entry += dwarf_read_uleb128(abbrev_entry, &form);
+                    } while (name != DW_AT_low_pc && (name || form));
+
+                    low_pc = form;
 
                     *offset = low_pc;
                 } else {

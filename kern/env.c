@@ -189,6 +189,58 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
 
     /* NOTE: find_function from kdebug.c should be used */
 
+    struct Elf *header = (struct Elf*)binary;
+
+    if (header->e_magic != ELF_MAGIC
+     || header->e_shentsize != sizeof(struct Secthdr)
+     || header->e_shstrndx == ELF_SHN_UNDEF)
+    {
+        return -E_INVALID_EXE;
+    }
+
+    struct Secthdr *sh = (struct Secthdr*)(binary + header->e_shoff);
+    const char *shstrtab = (const char*)(binary + sh[header->e_shstrndx].sh_offset);
+
+    struct Elf64_Sym *symtab = NULL;
+    size_t symtab_size = 0;
+
+    const char *strtab = NULL;
+
+    for (int i = 0; i < header->e_shnum; ++i)
+    {
+        struct Secthdr *section = &sh[i];
+
+        if (strcmp(shstrtab + section->sh_name, ".symtab") == 0)
+        {
+            symtab = (struct Elf64_Sym*)(binary + section->sh_offset);
+            symtab_size = section->sh_size / sizeof(*symtab);
+        }
+        else if (strcmp(shstrtab + section->sh_name, ".strtab") == 0)
+        {
+            strtab = (const char*)(binary + section->sh_offset);
+        }
+    }
+
+    if (symtab == NULL || symtab_size == 0 || strtab == NULL)
+        return -E_INVALID_EXE;
+
+    for (int i = 0; i < symtab_size; ++i)
+    {
+        struct Elf64_Sym *sym = &symtab[i];
+
+        uintptr_t *reloc_addr = (uintptr_t*)sym->st_value;
+        if ((uintptr_t)reloc_addr < image_start || (uintptr_t)reloc_addr > image_end)
+            continue;
+
+        const char *sym_name = strtab + sym->st_name;
+
+        uintptr_t func_ptr = find_function(sym_name);
+        if (func_ptr == 0)
+            continue;
+
+        *reloc_addr = func_ptr;
+    }
+
     return 0;
 }
 
@@ -243,6 +295,9 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
      || header->e_machine != EM_X86_64)
         return -E_INVALID_EXE;
 
+    uintptr_t min_addr = -1,
+              max_addr =  0;
+
     for (UINT16 i = 0; i < header->e_phnum; ++i)
     {
         struct Proghdr *ph = (struct Proghdr*)(binary + header->e_phoff + header->e_phentsize * i);
@@ -252,12 +307,15 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
             return -E_INVALID_EXE;
         memset((void*)ph->p_va, 0, ph->p_memsz);
         memcpy((void*)ph->p_va, binary + ph->p_offset, ph->p_filesz);
+
+        min_addr = (min_addr > ph->p_va ? ph->p_va : min_addr);
+        max_addr = (max_addr > ph->p_va ? max_addr : ph->p_va);
     }
 
     env->binary = binary;
     env->env_tf.tf_rip = header->e_entry;
 
-    return 0;
+    return bind_functions(env, binary, size, min_addr, max_addr);
 }
 
 /* Allocates a new env with env_alloc, loads the named elf

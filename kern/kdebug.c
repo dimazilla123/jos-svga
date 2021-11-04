@@ -98,5 +98,17 @@ find_function(const char *const fname) {
 
     // LAB 3: Your code here:
 
-    return 0;
+    struct Dwarf_Addrs addrs = {};
+    load_kernel_dwarf_info(&addrs);
+    uintptr_t offset = 0;
+
+    int ret = naive_address_by_fname(&addrs, fname, &offset);
+    if (ret < 0)
+        ret = address_by_fname(&addrs, fname, &offset);
+    if (ret < 0)
+    {
+        panic("find_function(\"%s\"): %i", fname, -ret);
+        return 0;
+    }
+    return offset;
 }
