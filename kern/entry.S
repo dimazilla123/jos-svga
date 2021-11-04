@@ -76,6 +76,8 @@ sys_yield:
 .type  sys_exit, @function
 sys_exit:
     cli
+    xor %rbp, %rbp
+    leaq (bootstacktop)(%rip), %rsp
     call csys_exit
     jmp .
 
