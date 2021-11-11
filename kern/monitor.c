@@ -13,6 +13,7 @@
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
 #include <kern/env.h>
+#include <kern/trap.h>
 
 #define WHITESPACE "\t\r\n "
 #define MAXARGS    16
@@ -21,8 +22,12 @@
 int mon_help(int argc, char **argv, struct Trapframe *tf);
 int mon_kerninfo(int argc, char **argv, struct Trapframe *tf);
 int mon_backtrace(int argc, char **argv, struct Trapframe *tf);
+
 int mon_test_backtrace(int argc, char **argv, struct Trapframe *tf);
 int mon_test_debug_info(int argc, char **argv, struct Trapframe *tf);
+
+int mon_dumpcmos(int argc, char **argv, struct Trapframe *tf);
+
 
 struct Command {
     const char *name;
@@ -35,8 +40,12 @@ static struct Command commands[] = {
         {"help", "Display this list of commands", mon_help},
         {"kerninfo", "Display information about the kernel", mon_kerninfo},
         {"backtrace", "Print stack backtrace", mon_backtrace},
+
         {"test_backtrace", "Print stack backtrace after recursive function", mon_test_backtrace},
         {"test_debug_info", "Test procedure of getting debug line info", mon_test_debug_info},
+
+        {"dumpcmos", "Print CMOS contents", mon_dumpcmos},
+
 };
 #define NCOMMANDS (sizeof(commands) / sizeof(commands[0]))
 
@@ -127,6 +136,18 @@ mon_test_backtrace(int argc, char **argv, struct Trapframe *tf) {
     return 0;
 }
 
+int
+mon_dumpcmos(int argc, char **argv, struct Trapframe *tf) {
+    // Dump CMOS memory in the following format:
+    // 00: 00 11 22 33 44 55 66 77 88 99 AA BB CC DD EE FF
+    // 10: 00 ..
+    // Make sure you understand the values read.
+    // Hint: Use cmos_read8()/cmos_write8() functions.
+    // LAB 4: Your code here
+
+    return 0;
+}
+
 /* Kernel monitor command interpreter */
 
 static int
@@ -168,6 +189,8 @@ monitor(struct Trapframe *tf) {
 
     cprintf("Welcome to the JOS kernel monitor!\n");
     cprintf("Type 'help' for a list of commands.\n");
+
+    if (tf) print_trapframe(tf);
 
     char *buf;
     do buf = readline("K> ");

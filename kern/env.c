@@ -8,6 +8,7 @@
 #include <inc/elf.h>
 
 #include <kern/env.h>
+#include <kern/trap.h>
 #include <kern/monitor.h>
 #include <kern/sched.h>
 #include <kern/kdebug.h>
@@ -399,14 +400,6 @@ csys_yield(struct Trapframe *tf) {
 
 _Noreturn void
 env_pop_tf(struct Trapframe *tf) {
-
-    /* Push RIP on program stack */
-    tf->tf_rsp -= sizeof(uintptr_t);
-    *((uintptr_t *)tf->tf_rsp) = tf->tf_rip;
-    /* Push RFLAGS on program stack */
-    tf->tf_rsp -= sizeof(uintptr_t);
-    *((uintptr_t *)tf->tf_rsp) = tf->tf_rflags;
-
     asm volatile(
             "movq %0, %%rsp\n"
             "movq 0(%%rsp), %%r15\n"
@@ -426,8 +419,8 @@ env_pop_tf(struct Trapframe *tf) {
             "movq 112(%%rsp), %%rax\n"
             "movw 120(%%rsp), %%es\n"
             "movw 128(%%rsp), %%ds\n"
-            "movq (128+48)(%%rsp), %%rsp\n"
-            "popfq; ret" ::"g"(tf)
+            "addq $152,%%rsp\n" /* skip tf_trapno and tf_errcode */
+            "iretq" ::"g"(tf)
             : "memory");
 
     /* Mostly to placate the compiler */
