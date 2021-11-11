@@ -25,7 +25,7 @@ sched_yield(void) {
      * below to halt the cpu */
 
     // LAB 3: Your code here:
-    static int last = 0;
+    static int last = NENV - 1;
     int it = (last + 1) % NENV;
     
     for (; it != last && envs[it].env_status != ENV_RUNNABLE; it = (it + 1) % NENV)

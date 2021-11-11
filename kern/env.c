@@ -473,7 +473,7 @@ env_run(struct Env *env) {
         {
             case ENV_RUNNING:
             {
-                curenv->env_type = ENV_RUNNABLE;
+                curenv->env_status = ENV_RUNNABLE;
             } break;
             default:
             {
@@ -482,7 +482,7 @@ env_run(struct Env *env) {
         }
     }
     curenv = env;
-    env->env_type = ENV_RUNNING;
+    env->env_status = ENV_RUNNING;
     env->env_runs++;
 
     env_pop_tf(&env->env_tf);
@@ -492,5 +492,5 @@ env_run(struct Env *env) {
 
 void hello()
 {
-    cprintf("Hello World!");
+    cprintf("Hello World!\n");
 }
