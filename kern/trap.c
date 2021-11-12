@@ -214,6 +214,8 @@ trap_dispatch(struct Trapframe *tf) {
         return;
     case IRQ_OFFSET + IRQ_CLOCK:
         // LAB 4: Your code here
+        rtc_timer_pic_handle();
+        sched_yield();
         return;
     default:
         print_trapframe(tf);
