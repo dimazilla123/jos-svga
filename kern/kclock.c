@@ -23,13 +23,18 @@ cmos_read8(uint8_t reg) {
 
     uint8_t res = 0;
 
+    outb(CMOS_CMD, reg);
+    res = inb(CMOS_DATA);
+
     nmi_enable();
     return res;
 }
 
 void
 cmos_write8(uint8_t reg, uint8_t value) {
-    // LAB 4: Your code here
+
+    outb(CMOS_CMD, reg);
+    outb(CMOS_DATA, value);
 
     nmi_enable();
 }
@@ -43,23 +48,30 @@ void
 rtc_timer_pic_interrupt(void) {
     // LAB 4: Your code here
     // Enable PIC interrupts.
+
+    pic_irq_unmask(IRQ_OFFSET + IRQ_CLOCK);
 }
 
 void
 rtc_timer_pic_handle(void) {
     rtc_check_status();
-    pic_send_eoi(IRQ_CLOCK);
+    pic_send_eoi(IRQ_OFFSET + IRQ_CLOCK);
 }
 
 void
 rtc_timer_init(void) {
     // LAB 4: Your code here
     // (use cmos_read8/cmos_write8)
+
+    uint8_t b = cmos_read8(RTC_BREG);
+    b |= RTC_PIE;
+    cmos_write8(RTC_BREG, b);
 }
 
 uint8_t
 rtc_check_status(void) {
     // LAB 4: Your code here
     // (use cmos_read8)
-    return 0;
+
+    return cmos_read8(RTC_CREG);
 }

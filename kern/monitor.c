@@ -14,6 +14,7 @@
 #include <kern/kdebug.h>
 #include <kern/env.h>
 #include <kern/trap.h>
+#include <kern/kclock.h>
 
 #define WHITESPACE "\t\r\n "
 #define MAXARGS    16
@@ -144,6 +145,20 @@ mon_dumpcmos(int argc, char **argv, struct Trapframe *tf) {
     // Make sure you understand the values read.
     // Hint: Use cmos_read8()/cmos_write8() functions.
     // LAB 4: Your code here
+
+    static const int CMOS_BYTES = 128;
+    static const int BYTES_IN_LINE = 16;
+
+    for (int i = 0; i < CMOS_BYTES; i += BYTES_IN_LINE)
+    {
+        cprintf("%02x:", i);
+        for (int j = 0; j < BYTES_IN_LINE; ++j)
+        {
+            uint8_t data = cmos_read8(i + j);
+            cprintf(" %02x", data);
+        }
+        cputchar('\n');
+    }
 
     return 0;
 }
