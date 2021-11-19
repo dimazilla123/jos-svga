@@ -212,13 +212,32 @@ hpet_get_main_cnt(void) {
  * HINT Don't forget to unmask interrupt in PIC */
 void
 hpet_enable_interrupts_tim0(void) {
-    // LAB 5: Your code here
+    if (!hpetReg)
+        panic("No hpet");
 
+    nmi_disable();
+
+    pic_irq_unmask(IRQ_TIMER);
+
+    hpetReg->TIM1_CONF |= HPET_TN_INT_ENB_CNF | HPET_TN_TYPE_CNF;
+    hpetReg->TIM1_COMP = 0.5 * Mega;
+
+    nmi_enable();
 }
 
 void
 hpet_enable_interrupts_tim1(void) {
-    // LAB 5: Your code here
+    if (!hpetReg)
+        panic("No hpet");
+
+    nmi_disable();
+
+    pic_irq_unmask(IRQ_CLOCK);
+
+    hpetReg->TIM1_CONF |= HPET_TN_INT_ENB_CNF | HPET_TN_TYPE_CNF;
+    hpetReg->TIM1_COMP = 1.5 * Mega;
+
+    nmi_enable();
 }
 
 void
@@ -238,7 +257,17 @@ uint64_t
 hpet_cpu_frequency(void) {
     static uint64_t cpu_freq;
 
-    // LAB 5: Your code here
+    uint64_t ticks = read_tsc();
+    uint64_t time = hpet_get_main_cnt();
+
+    static const uint64_t pause_cnt = 100;
+    for (int i = 0; i < pause_cnt; ++i)
+        asm volatile ("pause");
+
+    time = hpet_get_main_cnt() - time;
+    ticks = read_tsc() - ticks;
+
+    cpu_freq = ticks * hpetFreq / time;
 
     return cpu_freq;
 }
