@@ -75,7 +75,7 @@ acpi_enable(void) {
 static bool
 check_rsdp(const RSDP *rsdp_table)
 {
-    if (strncmp(rsdp_table->Signature, "RSD PTR", sizeof(rsdp_table->Signature)) != 0
+    if (strncmp(rsdp_table->Signature, "RSD PTR ", sizeof(rsdp_table->Signature)) != 0
         || rsdp_table->Revision < 2)
         return false;
 
@@ -185,7 +185,9 @@ get_fadt(void) {
     // HINT: ACPI table signatures are
     //       not always as their names
 
-    static FADT *kfadt;
+    static FADT *kfadt = NULL;
+    if (kfadt == NULL)
+        kfadt = acpi_find_table("FACP");
 
     return kfadt;
 }
@@ -196,7 +198,9 @@ get_hpet(void) {
     // LAB 5: Your code here
     // (use acpi_find_table)
 
-    static HPET *khpet;
+    static HPET *khpet = NULL;
+    if (khpet == 0)
+        khpet = acpi_find_table("HPET");
 
     return khpet;
 }
