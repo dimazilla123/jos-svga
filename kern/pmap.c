@@ -83,6 +83,11 @@ list_init(struct List *list) {
 inline static void __attribute__((always_inline))
 list_append(struct List *list, struct List *new) {
     // LAB 6: Your code here
+    new->next = list->next;
+    new->next->prev = new;
+
+    new->prev = list;
+    list->next = new;
 }
 
 /*
@@ -92,6 +97,13 @@ list_append(struct List *list, struct List *new) {
 inline static struct List *__attribute__((always_inline))
 list_del(struct List *list) {
     // LAB 6: Your code here.
+
+    assert(!list_empty(list));
+
+    list->next->prev = list->prev;
+    list->prev->next = list->next;
+
+    list_init(list);
 
     return list;
 }
