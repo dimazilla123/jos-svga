@@ -302,7 +302,7 @@ hpet_enable_interrupts_tim0(void) {
     pic_irq_unmask(IRQ_TIMER);
 
     hpetReg->TIM1_CONF |= HPET_TN_INT_ENB_CNF | HPET_TN_TYPE_CNF;
-    hpetReg->TIM1_COMP = 0.05 * Mega;
+    hpetReg->TIM1_COMP = 0.050 * Mega;
 
     nmi_enable();
 }
@@ -317,7 +317,7 @@ hpet_enable_interrupts_tim1(void) {
     pic_irq_unmask(IRQ_CLOCK);
 
     hpetReg->TIM1_CONF |= HPET_TN_INT_ENB_CNF | HPET_TN_TYPE_CNF;
-    hpetReg->TIM1_COMP = 0.15 * Mega;
+    hpetReg->TIM1_COMP = 0.150 * Mega;
 
     nmi_enable();
 }
@@ -365,9 +365,20 @@ pmtimer_get_timeval(void) {
  *      can be 24-bit or 32-bit. */
 uint64_t
 pmtimer_cpu_frequency(void) {
-    static uint64_t cpu_freq;
+    static uint64_t cpu_freq = 0;
 
-    // LAB 5: Your code here
+    uint64_t ticks_start = read_tsc();
+    uint32_t start = pmtimer_get_timeval();
+
+    for(int i = 0; i < 100; i++) {
+        asm volatile("pause");
+    }
+
+    uint64_t ticks = read_tsc() - ticks_start;
+    uint32_t time = pmtimer_get_timeval() - start;
+
+    cpu_freq = ticks * PM_FREQ / time;
+
 
     return cpu_freq;
 }

@@ -47,6 +47,10 @@ static struct Command commands[] = {
         {"kerninfo", "Display information about the kernel", mon_kerninfo},
         {"backtrace", "Print stack backtrace", mon_backtrace},
 
+        {"timer_start", "Start selected timer", mon_start},
+        {"timer_stop", "Stop selected timer", mon_stop},
+        {"timer_freq", "Get current cpu clock", mon_frequency},
+
         {"test_backtrace", "Print stack backtrace after recursive function", mon_test_backtrace},
         {"test_debug_info", "Test procedure of getting debug line info", mon_test_debug_info},
 
@@ -206,6 +210,27 @@ runcmd(char *buf, struct Trapframe *tf) {
     cprintf("Unknown command '%s'\n", argv[0]);
     return 0;
 }
+
+int mon_start(int argc, char **argv, struct Trapframe *tf) {
+    if(argc == 0) cprintf("Provide timer name\n");
+    else timer_start(argv[1]);
+
+    return 0;
+}
+
+int mon_stop(int argc, char **argv, struct Trapframe *tf) {
+    timer_stop();
+
+    return 0;
+}
+
+int mon_frequency(int argc, char **argv, struct Trapframe *tf) {
+    if(argc == 0) cprintf("Provide timer name\n");
+    timer_cpu_frequency(argv[1]);
+
+    return 0;
+}
+
 
 void
 monitor(struct Trapframe *tf) {
