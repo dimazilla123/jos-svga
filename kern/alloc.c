@@ -32,6 +32,7 @@ test_alloc(uint8_t nbytes) {
 
     size_t nunits = (nbytes + sizeof(Header) - 1) / sizeof(Header) + 1;
 
+    lock_kernel();
     /* no free list yet */
     if (!freep) {
         Header *hd = (Header *)&space;
@@ -58,11 +59,14 @@ test_alloc(uint8_t nbytes) {
                 p += p->size;
                 p->size = nunits;
             }
+            unlock_kernel();
             return (void *)(p + 1);
         }
 
+
         /* wrapped around free list */
         if (p == freep) {
+            unlock_kernel();
             return NULL;
         }
     }
@@ -79,6 +83,9 @@ test_free(void *ap) {
     // LAB 5: Your code here
 
     /* freed block at start or end of arena */
+
+    lock_kernel();
+
     Header *p = freep;
     for (; !(bp > p && bp < p->next); p = p->next)
         if (p >= p->next && (bp > p || bp < p->next)) break;
@@ -105,4 +112,5 @@ test_free(void *ap) {
 
     check_list();
 
+    unlock_kernel();
 }
