@@ -98,7 +98,7 @@ inline static struct List *__attribute__((always_inline))
 list_del(struct List *list) {
     // LAB 6: Your code here.
 
-    assert(!list_empty(list));
+    //assert(!list_empty(list));
 
     list->next->prev = list->prev;
     list->prev->next = list->next;
@@ -187,6 +187,22 @@ alloc_child(struct Page *parent, bool right) {
     // LAB 6: Your code here
 
     struct Page *new = NULL;
+
+    new = alloc_descriptor(parent->state);
+
+    if (right)
+        parent->right = new;
+    else
+        parent->left = new;
+    new->parent = parent;
+    new->refc = (parent->refc ? 1 : 0);
+
+    new->class = parent->class - 1;
+
+    if (right)
+        new->addr = parent->addr + (CLASS_SIZE(new->class) >> CLASS_BASE);
+    else
+        new->addr = parent->addr;
 
     return new;
 }
@@ -596,8 +612,7 @@ detect_memory(void) {
      *  end of kernel executable image.)*/
     // LAB 6: Your code here
 
-    attach_region(IOPHYSMEM, EXTPHYSMEM, RESERVED_NODE);
-    //attach_region(EXTPHYSMEM, uefi_lp->, enum PageState type)
+    attach_region(IOPHYSMEM, PADDR(end), RESERVED_NODE);
     /* Detech memory via ether UEFI or CMOS */
     if (uefi_lp && uefi_lp->MemoryMap) {
         EFI_MEMORY_DESCRIPTOR *start = (void *)uefi_lp->MemoryMap;
