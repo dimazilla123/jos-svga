@@ -63,13 +63,13 @@ rtc_timer_pic_interrupt(void) {
     // LAB 4: Your code here
     // Enable PIC interrupts.
 
-    pic_irq_unmask(IRQ_OFFSET + IRQ_CLOCK);
+    pic_irq_unmask(IRQ_CLOCK);
 }
 
 static void
 rtc_timer_pic_handle(void) {
     rtc_check_status();
-    pic_send_eoi(IRQ_OFFSET + IRQ_CLOCK);
+    pic_send_eoi(IRQ_CLOCK);
 }
 
 struct Timer timer_rtc = {
