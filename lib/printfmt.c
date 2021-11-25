@@ -211,11 +211,9 @@ vprintfmt(void (*putch)(int, void *), void *put_arg, const char *fmt, va_list ap
             goto number;
 
         case 'o': /* (unsigned) octal */
-            // LAB 1: Your code here:
-            putch('X', put_arg);
-            putch('X', put_arg);
-            putch('X', put_arg);
-            break;
+            num = (uintptr_t)va_arg(aq, void *);
+            base = 8;
+            goto number;
 
         case 'p': /* pointer */
             putch('0', put_arg);

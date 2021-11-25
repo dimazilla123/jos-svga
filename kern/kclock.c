@@ -17,6 +17,17 @@
  * Why it is necessary?
  */
 
+static void
+wait_for_reg(void)
+{
+    asm volatile ("nop\n"
+                  "nop\n"
+                  "nop\n"
+                  "nop\n"
+                  "nop\n"
+                  "nop\n");
+}
+
 uint8_t
 cmos_read8(uint8_t reg) {
     /* MC146818A controller */
@@ -24,13 +35,20 @@ cmos_read8(uint8_t reg) {
 
     uint8_t res = 0;
 
+    outb(CMOS_CMD, reg);
+    wait_for_reg();
+    res = inb(CMOS_DATA);
+
     nmi_enable();
     return res;
 }
 
 void
 cmos_write8(uint8_t reg, uint8_t value) {
-    // LAB 4: Your code here
+
+    outb(CMOS_CMD, reg);
+    wait_for_reg();
+    outb(CMOS_DATA, value);
 
     nmi_enable();
 }
@@ -44,6 +62,8 @@ static void
 rtc_timer_pic_interrupt(void) {
     // LAB 4: Your code here
     // Enable PIC interrupts.
+
+    pic_irq_unmask(IRQ_CLOCK);
 }
 
 static void
@@ -63,11 +83,19 @@ void
 rtc_timer_init(void) {
     // LAB 4: Your code here
     // (use cmos_read8/cmos_write8)
+
+    uint8_t b = cmos_read8(RTC_BREG);
+    b |= RTC_PIE;
+    cmos_write8(RTC_BREG, b);
+    uint8_t a = cmos_read8(RTC_AREG);
+    a = RTC_NON_RATE_MASK(a);
+    cmos_write8(RTC_AREG, RTC_SET_NEW_RATE(a, 0xf));
 }
 
 uint8_t
 rtc_check_status(void) {
     // LAB 4: Your code here
     // (use cmos_read8)
-    return 0;
+
+    return cmos_read8(RTC_CREG);
 }

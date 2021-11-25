@@ -7,6 +7,7 @@
 #include <inc/assert.h>
 #include <inc/env.h>
 #include <inc/x86.h>
+#include <inc/types.h>
 
 #include <kern/console.h>
 #include <kern/monitor.h>
@@ -16,6 +17,7 @@
 #include <kern/env.h>
 #include <kern/pmap.h>
 #include <kern/trap.h>
+#include <kern/kclock.h>
 
 #define WHITESPACE "\t\r\n "
 #define MAXARGS    16
@@ -24,11 +26,16 @@
 int mon_help(int argc, char **argv, struct Trapframe *tf);
 int mon_kerninfo(int argc, char **argv, struct Trapframe *tf);
 int mon_backtrace(int argc, char **argv, struct Trapframe *tf);
+
+int mon_test_backtrace(int argc, char **argv, struct Trapframe *tf);
+int mon_test_debug_info(int argc, char **argv, struct Trapframe *tf);
+
 int mon_dumpcmos(int argc, char **argv, struct Trapframe *tf);
 int mon_start(int argc, char **argv, struct Trapframe *tf);
 int mon_stop(int argc, char **argv, struct Trapframe *tf);
 int mon_frequency(int argc, char **argv, struct Trapframe *tf);
 int mon_memory(int argc, char **argv, struct Trapframe *tf);
+
 
 struct Command {
     const char *name;
@@ -41,7 +48,16 @@ static struct Command commands[] = {
         {"help", "Display this list of commands", mon_help},
         {"kerninfo", "Display information about the kernel", mon_kerninfo},
         {"backtrace", "Print stack backtrace", mon_backtrace},
+
+        {"timer_start", "Start selected timer", mon_start},
+        {"timer_stop", "Stop selected timer", mon_stop},
+        {"timer_freq", "Get current cpu clock", mon_frequency},
+
+        {"test_backtrace", "Print stack backtrace after recursive function", mon_test_backtrace},
+        {"test_debug_info", "Test procedure of getting debug line info", mon_test_debug_info},
+
         {"dumpcmos", "Print CMOS contents", mon_dumpcmos},
+
 };
 #define NCOMMANDS (sizeof(commands) / sizeof(commands[0]))
 
@@ -68,9 +84,66 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf) {
     return 0;
 }
 
+struct StackFrameFooter;
+
+struct StackFrameFooter
+{
+    struct StackFrameFooter *next;
+    uintptr_t ret;
+};
+
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf) {
-    // LAB 2: Your code here
+    cprintf("Stack backtrace:\n");
+    struct StackFrameFooter *frame = (struct StackFrameFooter*)read_rbp();
+
+    //int res = debuginfo_rip((uintptr_t)&mon_help, &info);
+
+    while (frame != NULL)
+    {
+        struct Ripdebuginfo info = {};
+        int res = debuginfo_rip(frame->ret, &info);
+        cprintf("  rbp %016lx  rip %016lx\n", (uintptr_t)frame, frame->ret);
+        if (!res)
+            cprintf("    %s:%d: %s+%ld\n", info.rip_file, info.rip_line, info.rip_fn_name, frame->ret - info.rip_fn_addr);
+        //cprintf("    res = %d, line = %d\n", res, info.rip_line);
+        frame = frame->next;
+    }
+
+    return 0;
+}
+
+int mon_test_debug_info(int argc, char **argv, struct Trapframe *tf)
+{
+    struct Ripdebuginfo info = {};
+    int res = debuginfo_rip((uintptr_t)&mon_test_debug_info, &info);
+    cprintf("res = %d line = %d\n", res, info.rip_line);
+    return 0;
+}
+
+static void test_mon_backtrace(uint32_t depth)
+{
+    if (depth == 0)
+    {
+        mon_backtrace(0, 0, NULL);
+        return;
+    }
+    test_mon_backtrace(--depth);
+}
+
+int
+mon_test_backtrace(int argc, char **argv, struct Trapframe *tf) {
+    if (argc < 2)
+    {
+        cprintf("Expected recursion depth\n");
+        return 0;
+    }
+    uint32_t depth = 0;
+    for (const char *s = argv[1]; '0' <= *s && *s <= '9'; ++s)
+        depth = 10 * depth + (*s - '0');
+    cprintf("depth = %u\n", depth);
+
+    test_mon_backtrace(depth);
 
     return 0;
 }
@@ -83,6 +156,20 @@ mon_dumpcmos(int argc, char **argv, struct Trapframe *tf) {
     // Make sure you understand the values read.
     // Hint: Use cmos_read8()/cmos_write8() functions.
     // LAB 4: Your code here
+
+    static const int CMOS_BYTES = 128;
+    static const int BYTES_IN_LINE = 16;
+
+    for (int i = 0; i < CMOS_BYTES; i += BYTES_IN_LINE)
+    {
+        cprintf("%02x:", i);
+        for (int j = 0; j < BYTES_IN_LINE; ++j)
+        {
+            uint8_t data = cmos_read8(i + j);
+            cprintf(" %02x", data);
+        }
+        cputchar('\n');
+    }
 
     return 0;
 }
@@ -130,6 +217,27 @@ runcmd(char *buf, struct Trapframe *tf) {
     cprintf("Unknown command '%s'\n", argv[0]);
     return 0;
 }
+
+int mon_start(int argc, char **argv, struct Trapframe *tf) {
+    if(argc == 0) cprintf("Provide timer name\n");
+    else timer_start(argv[1]);
+
+    return 0;
+}
+
+int mon_stop(int argc, char **argv, struct Trapframe *tf) {
+    timer_stop();
+
+    return 0;
+}
+
+int mon_frequency(int argc, char **argv, struct Trapframe *tf) {
+    if(argc == 0) cprintf("Provide timer name\n");
+    timer_cpu_frequency(argv[1]);
+
+    return 0;
+}
+
 
 void
 monitor(struct Trapframe *tf) {

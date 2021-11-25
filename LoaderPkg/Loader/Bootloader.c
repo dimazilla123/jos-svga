@@ -71,6 +71,28 @@ HandleProtocolFallback (
   return Status;
 }
 
+STATIC
+VOID
+DumpVideoMode (
+  IN EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *info
+  )
+{
+  /*
+    typedef struct {
+      UINT32                    Version;
+      UINT32                    HorizontalResolution;
+      UINT32                    VerticalResolution;
+      EFI_GRAPHICS_PIXEL_FORMAT PixelFormat;
+      EFI_PIXEL_BITMASK         PixelInformation;
+      UINT32                    PixelsPerScanLine;
+  } EFI_G
+  */
+  DEBUG ((DEBUG_INFO, "Version = %d\n", info->Version));
+  DEBUG ((DEBUG_INFO, "HorizontalResolution = %d\n", info->HorizontalResolution));
+  DEBUG ((DEBUG_INFO, "VerticalResolution = %d\n", info->VerticalResolution));
+  DEBUG ((DEBUG_INFO, "PixelsPerScanLine = %d\n", info->PixelsPerScanLine));
+}
+
 /**
   Initialise graphics rendering and set loader params.
 
@@ -86,6 +108,15 @@ InitGraphics (
 {
   EFI_STATUS                    Status;
   EFI_GRAPHICS_OUTPUT_PROTOCOL  *GraphicsOutput;
+
+  EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *info;
+  UINTN size_of_info;
+
+  UINT32 i;
+  UINT32 acceptable;
+
+  const UINT32 SCREEN_WIDTH  = 1920;
+  const UINT32 SCREEN_HEIGHT = 1080;
 
   ASSERT (LoaderParams != NULL);
 
@@ -114,6 +145,22 @@ InitGraphics (
   // Hint: Use GetMode/SetMode functions.
   //
 
+  acceptable = -1;
+  for (i = 0; i < GraphicsOutput->Mode->MaxMode; ++i)
+  {
+    GraphicsOutput->QueryMode(GraphicsOutput, i, &size_of_info, &info);
+    DEBUG((DEBUG_INFO, "Mode = %d\n", i));
+    DumpVideoMode(info);
+    if (info->HorizontalResolution == SCREEN_WIDTH && info->VerticalResolution == SCREEN_HEIGHT)
+    {
+      acceptable = i;
+    }
+  }
+
+  if (acceptable != -1)
+  {
+    GraphicsOutput->SetMode(GraphicsOutput, acceptable);
+  }
 
   //
   // Fill screen with black.
@@ -977,7 +1024,7 @@ UefiMain (
   UINTN              EntryPoint;
   VOID               *GateData;
 
-#if 1 ///< Uncomment to await debugging
+#if 0 ///< Uncomment to await debugging
   volatile BOOLEAN   Connected;
   DEBUG ((DEBUG_INFO, "JOS: Awaiting debugger connection\n"));
 

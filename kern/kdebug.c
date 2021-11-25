@@ -68,6 +68,8 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
     * Hint: use line_for_address from kern/dwarf_lines.c */
 
     // LAB 2: Your res here:
+    res = line_for_address(&addrs, addr - CALL_INSN_LEN, line_offset, &info->rip_line);
+    if (res < 0) goto error;
 
     /* Find function name corresponding to given address.
     * Hint: note that we need the address of `call` instruction, but rip holds
@@ -77,7 +79,9 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
     * string returned by function_by_info will always be */
 
     // LAB 2: Your res here:
-
+    res = function_by_info(&addrs, addr - CALL_INSN_LEN, offset, &tmp_buf, &info->rip_fn_addr);
+    if (res < 0) goto error;
+    strncpy(info->rip_fn_name, tmp_buf, RIPDEBUG_BUFSIZ);
 error:
     return res;
 }
@@ -92,5 +96,26 @@ find_function(const char *const fname) {
 
     // LAB 3: Your code here:
 
-    return 0;
+    struct Dwarf_Addrs dwarf_addrs;
+    load_kernel_dwarf_info(&dwarf_addrs);
+
+    uintptr_t func = 0;
+    int res = address_by_fname(&dwarf_addrs, fname, &func);
+    if (res < 0) {
+        res = naive_address_by_fname(&dwarf_addrs, fname, &func);
+        if (res < 0) {
+            struct Elf64_Sym *symtab = (struct Elf64_Sym*)uefi_lp->SymbolTableStart;
+            size_t symtab_sz = (uefi_lp->SymbolTableEnd - uefi_lp->SymbolTableStart) / sizeof(struct Elf64_Sym);
+            const char* strtab = (const char *)uefi_lp->StringTableStart;
+            for (size_t i = 0; i < symtab_sz; ++i) {
+                const char* sym_name = strtab + symtab[i].st_name;
+                if (!strcmp(sym_name, fname)) {
+                    func = (uintptr_t)symtab[i].st_value;
+                    break;
+                }
+            }
+        }
+    }
+
+    return func;
 }

@@ -73,6 +73,44 @@ acpi_enable(void) {
         ;
 }
 
+static bool
+check_rsdp(const RSDP *rsdp_table)
+{
+    if (strncmp(rsdp_table->Signature, "RSD PTR ", sizeof(rsdp_table->Signature)) != 0
+        || rsdp_table->Revision < 2)
+        return false;
+
+    uint8_t checksum = 0;
+    for (int i = 0; i < offsetof(RSDP, Length); ++i)
+        checksum += ((uint8_t*)rsdp_table)[i];
+    if (checksum)
+        return false;
+    return true;
+}
+
+static bool
+check_xsdt(const XSDT *xsdt_table)
+{
+    if (xsdt_table == NULL)
+        return false;
+    uint8_t checksum = 0;
+    if (strncmp(xsdt_table->h.Signature, "XSDT", sizeof(xsdt_table->h.Signature)) != 0)
+        return false;
+
+    for(int i = 0; i < xsdt_table->h.Length; i++)
+        checksum += ((uint8_t*)xsdt_table)[i];
+    return checksum == 0;
+}
+
+static bool
+check_sdt(const void *std, uint32_t len)
+{
+    uint8_t checksum = 0;
+    for (int i = 0; i < len; ++i)
+        checksum += ((uint8_t*)std)[i];
+    return checksum == 0;
+}
+
 static void *
 acpi_find_table(const char *sign) {
     /*
@@ -90,6 +128,46 @@ acpi_find_table(const char *sign) {
 
     // LAB 5: Your code here
 
+    physaddr_t rsdp_addr = uefi_lp->ACPIRoot;
+    RSDP *rsdp_table = mmio_map_region(rsdp_addr, sizeof(*rsdp_table));
+
+    if (rsdp_table == NULL)
+        panic("No RSDP table mapped!");
+    if (!check_rsdp(rsdp_table))
+        panic("Bad RSDP");
+
+    physaddr_t xsdt_addr = rsdp_table->XsdtAddress;
+    XSDT* xsdt_table = mmio_remap_last_region(xsdt_addr, rsdp_table, sizeof(RSDP), sizeof(XSDT));
+    if (!xsdt_table)
+        panic("No XSDT remapped!");
+    if (!check_xsdt(xsdt_table))
+        panic("Bad XSDT");
+
+
+    ACPISDTHeader* old_sdt_h = NULL;
+    unsigned tables_cnt = (xsdt_table->h.Length - sizeof(ACPISDTHeader)) / sizeof(xsdt_table->PointerToOtherSDT[0]);
+
+    ACPISDTHeader* sdt_h = mmio_map_region(xsdt_table->PointerToOtherSDT[0], sizeof(ACPISDTHeader));
+    for (int i = 0; i < tables_cnt; i++) {
+        if (strncmp(sdt_h->Signature, sign, sizeof(sdt_h->Signature))) {
+            ACPISDTHeader *tmp = mmio_remap_last_region(xsdt_table->PointerToOtherSDT[i + 1], old_sdt_h, sizeof(ACPISDTHeader), sizeof(ACPISDTHeader));
+            old_sdt_h = sdt_h;
+            sdt_h = tmp;
+            continue;
+        }
+
+        uint32_t sdt_len = sdt_h->Length;
+
+        void *sdt = mmio_remap_last_region(xsdt_table->PointerToOtherSDT[i], sdt_h, sizeof(ACPISDTHeader), sdt_len);
+        if (!sdt)
+            panic("No SDT remapped!");
+
+        if (!check_sdt(sdt, sdt_len))
+            panic("Bad SDT");
+
+        return sdt;
+    }
+
     return NULL;
 }
 
@@ -101,7 +179,9 @@ get_fadt(void) {
     // HINT: ACPI table signatures are
     //       not always as their names
 
-    static FADT *kfadt;
+    static FADT *kfadt = NULL;
+    if (kfadt == NULL)
+        kfadt = acpi_find_table("FACP");
 
     return kfadt;
 }
@@ -112,7 +192,9 @@ get_hpet(void) {
     // LAB 5: Your code here
     // (use acpi_find_table)
 
-    static HPET *khpet;
+    static HPET *khpet = NULL;
+    if (khpet == 0)
+        khpet = acpi_find_table("HPET");
 
     return khpet;
 }
@@ -213,13 +295,32 @@ hpet_get_main_cnt(void) {
  * HINT Don't forget to unmask interrupt in PIC */
 void
 hpet_enable_interrupts_tim0(void) {
-    // LAB 5: Your code here
+    if (!hpetReg)
+        panic("No hpet");
 
+    nmi_disable();
+
+    pic_irq_unmask(IRQ_TIMER);
+
+    hpetReg->TIM1_CONF |= HPET_TN_INT_ENB_CNF | HPET_TN_TYPE_CNF;
+    hpetReg->TIM1_COMP = 0.050 * Mega;
+
+    nmi_enable();
 }
 
 void
 hpet_enable_interrupts_tim1(void) {
-    // LAB 5: Your code here
+    if (!hpetReg)
+        panic("No hpet");
+
+    nmi_disable();
+
+    pic_irq_unmask(IRQ_CLOCK);
+
+    hpetReg->TIM1_CONF |= HPET_TN_INT_ENB_CNF | HPET_TN_TYPE_CNF;
+    hpetReg->TIM1_COMP = 0.150 * Mega;
+
+    nmi_enable();
 }
 
 void
@@ -239,7 +340,17 @@ uint64_t
 hpet_cpu_frequency(void) {
     static uint64_t cpu_freq;
 
-    // LAB 5: Your code here
+    uint64_t ticks = read_tsc();
+    uint64_t time = hpet_get_main_cnt();
+
+    static const uint64_t pause_cnt = 100;
+    for (int i = 0; i < pause_cnt; ++i)
+        asm volatile ("pause");
+
+    time = hpet_get_main_cnt() - time;
+    ticks = read_tsc() - ticks;
+
+    cpu_freq = ticks * hpetFreq / time;
 
     return cpu_freq;
 }
@@ -255,9 +366,20 @@ pmtimer_get_timeval(void) {
  *      can be 24-bit or 32-bit. */
 uint64_t
 pmtimer_cpu_frequency(void) {
-    static uint64_t cpu_freq;
+    static uint64_t cpu_freq = 0;
 
-    // LAB 5: Your code here
+    uint64_t ticks_start = read_tsc();
+    uint32_t start = pmtimer_get_timeval();
+
+    for(int i = 0; i < 100; i++) {
+        asm volatile("pause");
+    }
+
+    uint64_t ticks = read_tsc() - ticks_start;
+    uint32_t time = pmtimer_get_timeval() - start;
+
+    cpu_freq = ticks * PM_FREQ / time;
+
 
     return cpu_freq;
 }
