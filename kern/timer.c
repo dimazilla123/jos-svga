@@ -72,6 +72,44 @@ acpi_enable(void) {
         ;
 }
 
+static bool
+check_rsdp(const RSDP *rsdp_table)
+{
+    if (strncmp(rsdp_table->Signature, "RSD PTR", sizeof(rsdp_table->Signature)) != 0
+        || rsdp_table->Revision < 2)
+        return false;
+
+    uint8_t checksum = 0;
+    for (int i = 0; i < offsetof(RSDP, Length); ++i)
+        checksum += ((uint8_t*)rsdp_table)[i];
+    if (checksum)
+        return false;
+    return true;
+}
+
+static bool
+check_xsdt(const XSDT *xsdt_table)
+{
+    if (xsdt_table == NULL)
+        return false;
+    uint8_t checksum = 0;
+    if (strncmp(xsdt_table->h.Signature, "XSDT", sizeof(xsdt_table->h.Signature)) != 0)
+        return false;
+
+    for(int i = 0; i < xsdt_table->h.Length; i++)
+        checksum += ((uint8_t*)xsdt_table)[i];
+    return checksum == 0;
+}
+
+static bool
+check_sdt(const void *std, uint32_t len)
+{
+    uint8_t checksum = 0;
+    for (int i = 0; i < len; ++i)
+        checksum += ((uint8_t*)std)[i];
+    return checksum == 0;
+}
+
 static void *
 acpi_find_table(const char *sign) {
     /*
@@ -88,6 +126,53 @@ acpi_find_table(const char *sign) {
      */
 
     // LAB 5: Your code here
+
+    physaddr_t rsdp_addr = uefi_lp->ACPIRoot;
+    RSDP *rsdp_table = mmio_map_region(rsdp_addr, sizeof(*rsdp_table));
+
+    if (rsdp_table == NULL)
+        panic("No RSDP table mapped!");
+    if (!check_rsdp(rsdp_table))
+        panic("Bad RSDP");
+
+    physaddr_t xsdt_addr = rsdp_table->XsdtAddress;
+    XSDT* xsdt_table = mmio_remap_last_region(xsdt_addr, rsdp_table, sizeof(RSDP), sizeof(XSDT));
+    if (!xsdt_table)
+        panic("No XSDT remapped!");
+    if (!check_xsdt(xsdt_table))
+        panic("Bad XSDT");
+
+
+    ACPISDTHeader* old_sdt_h = NULL;
+    unsigned tables_cnt = (xsdt_table->h.Length - sizeof(ACPISDTHeader)) / sizeof(xsdt_table->PointerToOtherSDT[0]);
+
+    ACPISDTHeader* sdt_h = mmio_map_region(xsdt_table->PointerToOtherSDT[0], sizeof(ACPISDTHeader));
+    for (int i = 0; i < tables_cnt; i++) {
+
+        if (i == 0) {
+            sdt_h = mmio_map_region(xsdt_table->PointerToOtherSDT[i], sizeof(ACPISDTHeader));
+        } else {
+            sdt_h = mmio_remap_last_region(xsdt_table->PointerToOtherSDT[i], old_sdt_h, sizeof(ACPISDTHeader), sizeof(ACPISDTHeader));
+        }
+
+        if(strncmp(sdt_h->Signature, sign, 4)) {
+            ACPISDTHeader *tmp = mmio_remap_last_region(xsdt_table->PointerToOtherSDT[i + 1], old_sdt_h, sizeof(ACPISDTHeader), sizeof(ACPISDTHeader));
+            old_sdt_h = sdt_h;
+            sdt_h = tmp;
+            continue;
+        }
+
+        uint32_t sdt_len = sdt_h->Length;
+
+        void *sdt = mmio_remap_last_region(xsdt_table->PointerToOtherSDT[i], sdt_h, sizeof(ACPISDTHeader), sdt_len);
+        if (!sdt)
+            panic("No SDT remapped!");
+
+        if (!check_sdt(sdt, sdt_len))
+            panic("Bad SDT");
+
+        return sdt;
+    }
 
     return NULL;
 }
