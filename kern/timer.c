@@ -148,14 +148,7 @@ acpi_find_table(const char *sign) {
 
     ACPISDTHeader* sdt_h = mmio_map_region(xsdt_table->PointerToOtherSDT[0], sizeof(ACPISDTHeader));
     for (int i = 0; i < tables_cnt; i++) {
-
-        if (i == 0) {
-            sdt_h = mmio_map_region(xsdt_table->PointerToOtherSDT[i], sizeof(ACPISDTHeader));
-        } else {
-            sdt_h = mmio_remap_last_region(xsdt_table->PointerToOtherSDT[i], old_sdt_h, sizeof(ACPISDTHeader), sizeof(ACPISDTHeader));
-        }
-
-        if(strncmp(sdt_h->Signature, sign, 4)) {
+        if (strncmp(sdt_h->Signature, sign, sizeof(sdt_h->Signature))) {
             ACPISDTHeader *tmp = mmio_remap_last_region(xsdt_table->PointerToOtherSDT[i + 1], old_sdt_h, sizeof(ACPISDTHeader), sizeof(ACPISDTHeader));
             old_sdt_h = sdt_h;
             sdt_h = tmp;
@@ -309,7 +302,7 @@ hpet_enable_interrupts_tim0(void) {
     pic_irq_unmask(IRQ_TIMER);
 
     hpetReg->TIM1_CONF |= HPET_TN_INT_ENB_CNF | HPET_TN_TYPE_CNF;
-    hpetReg->TIM1_COMP = 0.5 * Mega;
+    hpetReg->TIM1_COMP = 0.05 * Mega;
 
     nmi_enable();
 }
@@ -324,7 +317,7 @@ hpet_enable_interrupts_tim1(void) {
     pic_irq_unmask(IRQ_CLOCK);
 
     hpetReg->TIM1_CONF |= HPET_TN_INT_ENB_CNF | HPET_TN_TYPE_CNF;
-    hpetReg->TIM1_COMP = 1.5 * Mega;
+    hpetReg->TIM1_COMP = 0.15 * Mega;
 
     nmi_enable();
 }
