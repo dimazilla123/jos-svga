@@ -114,6 +114,8 @@ void dump_page_table(pte_t *pml4);
 void dump_memory_lists(void);
 void dump_virtual_tree(struct Page *node, int class);
 
+void check_page_alloc();
+
 void *kzalloc_region(size_t size);
 
 void *mmio_map_region(physaddr_t addr, size_t size);

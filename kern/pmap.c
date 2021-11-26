@@ -694,6 +694,8 @@ init_allocator(void) {
     root.state = PARTIAL_NODE;
 }
 
+void check_page_alloc();
+
 void
 init_memory(void) {
 
@@ -702,5 +704,67 @@ init_memory(void) {
 
     detect_memory();
     check_physical_tree(&root);
+
     if (trace_init) cprintf("Physical memory tree is correct\n");
+}
+
+struct Page *
+next_node(struct Page *v)
+{
+    if (!v)
+        return NULL;
+    if (v->right) {
+        v = v->right;
+        while (v->left)
+            v = v->left;
+        return v;
+    }
+    while (v->parent) {
+        if (v->parent->left == v)
+            return v->parent;
+        v = v->parent;
+    }
+    return NULL;
+}
+
+
+static int
+calc_pages_cnt()
+{
+    struct Page *v = &root;
+
+    while (v->left)
+        v = v->left;
+
+    int answ = 0;
+    while (v)
+    {
+        if (v->state == RESERVED_NODE)
+            ++answ;
+        v = next_node(v);
+    }
+    return answ;
+}
+
+
+void
+check_page_alloc()
+{
+    struct Page *last[2] = {};
+    for (;;)
+    {
+        struct Page *new = alloc_page(0, ALLOC_POOL);
+
+        if (!new)
+            break;
+        last[0] = last[1];
+        last[1] = new;
+    }
+
+    for (int i = 0; i < sizeof(last) / sizeof(last[0]); ++i)
+        page_ref(last[i]);
+    for (int i = 0; i < sizeof(last) / sizeof(last[0]); ++i)
+        page_unref(last[i]);
+
+    dump_memory_lists();
 }
