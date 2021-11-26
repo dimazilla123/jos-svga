@@ -56,6 +56,8 @@ static struct Command commands[] = {
         {"test_backtrace", "Print stack backtrace after recursive function", mon_test_backtrace},
         {"test_debug_info", "Test procedure of getting debug line info", mon_test_debug_info},
 
+        {"memory", "Print memory lists", mon_memory},
+
         {"dumpcmos", "Print CMOS contents", mon_dumpcmos},
 
 };
@@ -183,6 +185,12 @@ mon_dumpcmos(int argc, char **argv, struct Trapframe *tf) {
 // LAB 6: Your code here
 
 /* Kernel monitor command interpreter */
+
+int
+mon_memory(int argc, char **argv, struct Trapframe *tf) {
+    dump_memory_lists();
+    return 0;
+}
 
 static int
 runcmd(char *buf, struct Trapframe *tf) {

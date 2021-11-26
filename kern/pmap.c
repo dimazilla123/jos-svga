@@ -477,7 +477,33 @@ void
 dump_memory_lists(void) {
     // LAB 6: Your code here
 
+    static const int ADDRES_PER_LINE = 4;
+
+    for (int class = 0; class < MAX_CLASS; ++class) {
+        struct List *list = &free_classes[class];
+
+        cprintf("Class[%d] size(%0llx) {", class, CLASS_SIZE(class));
+
+        int i = 0;
+        for (struct List *cur_node = list->next; cur_node != list; cur_node = cur_node->next, ++i) {
+            if (i % ADDRES_PER_LINE == 0) {
+                cprintf("\n    ");
+            }
+
+            struct Page *page = (struct Page*) cur_node;
+
+            cprintf("0x%08zx ", (uintptr_t) page->addr << CLASS_BASE);
+        }
+
+        cprintf("\n}\n");
+
+        if (i == 0) {
+            break;
+        }
+    }
+
 }
+
 
 /*
  * Pretty-print page table
