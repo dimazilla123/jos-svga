@@ -354,51 +354,19 @@ attach_region(uintptr_t start, uintptr_t end, enum PageState type) {
     start = ROUNDDOWN(start, CLASS_SIZE(0));
     end = ROUNDUP(end, CLASS_SIZE(0));
 
-    // LAB 6: Your code here
+    while (start < end){
+        class = 0;
 
-    // Getting largest subsegment
-    uintptr_t l = start,
-              r = start + CLASS_SIZE(class);
+        for (; class <= MAX_CLASS && (CLASS_MASK(class) & start) == 0; ++class)
+            ;
+        for (; class && ((CLASS_MASK(class) & start) != 0 || (start + CLASS_SIZE(class) > end)); --class)
+            ;
 
-    while (class < MAX_CLASS)
-    {
-        uintptr_t nl = ROUNDUP(l, CLASS_SIZE(class + 1)),
-                  nr = nl + CLASS_SIZE(class + 1);
-        if (end <= nl && end <= nr)
-            break;
-        ++class;
-        l = nl;
-        r = nr;
-    }
-
-    page_lookup(NULL, l, class, type, 1);
-
-    // Allocating right
-    int rclass = class;
-    uintptr_t i = r;
-    while (i <= end)
-    {
-        while (rclass >= 0 && i + CLASS_SIZE(rclass) > end)
-            --rclass;
-        if (rclass < 0)
-            break;
-        page_lookup(NULL, i, rclass, type, 1);
-        i += CLASS_SIZE(rclass);
-    }
-
-    // Allocating left
-    int lclass = class;
-    i = l;
-    while (start <= i)
-    {
-        while (lclass >= 0 && i - CLASS_SIZE(lclass) < start)
-            --lclass;
-        if (lclass < 0)
-            break;
-        page_lookup(NULL, i, lclass, type, 1);
-        i -= CLASS_SIZE(lclass);
+        page_lookup(NULL, start, class, type, 1);
+        start += CLASS_SIZE(class);
     }
 }
+
 
 /*
  * Helper function for dumping single page table
@@ -605,7 +573,7 @@ detect_memory(void) {
     /* Attach first page as reserved memory */
     // LAB 6: Your code here
 
-    attach_region(0, HUGE_PAGE_SIZE, RESERVED_NODE);
+    attach_region(0, PAGE_SIZE, RESERVED_NODE);
 
     /* Attach kernel and old IO memory
      * (from IOPHYSMEM to the physical address of end label. end points the the
