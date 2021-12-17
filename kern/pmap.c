@@ -273,6 +273,7 @@ page_lookup(struct Page *hint, uintptr_t addr, int class, enum PageState type, b
 
 static void
 page_free(struct Page *page) {
+    page->refc = 0;
     while (page != &root) {
         struct Page *par = page->parent;
         assert_physical(par);
@@ -781,6 +782,13 @@ memcpy_page(struct AddressSpace *dst, uintptr_t va, struct Page *page) {
     assert(dst);
 
     // LAB 7: Your code here
+    struct AddressSpace *src = switch_address_space(dst);
+
+    set_wp(false);
+    nosan_memcpy((void*) va, KADDR(page2pa(page)), CLASS_SIZE(page->class));
+    set_wp(true);
+
+    switch_address_space(src);
 }
 
 static void
@@ -970,7 +978,9 @@ map_page(struct AddressSpace *spc, uintptr_t addr, struct Page *page, int flags)
     // LAB 7: Your code here
 
     (void)pd;
-    size_t pdi0 = 0, pdi1 = 0;
+    size_t pdi0 = PD_INDEX(addr), pdi1 = PD_INDEX(end);
+    if (pdi0 > pdi1) pdi1 = PD_ENTRY_COUNT;
+
 
     /* Allocate empty pt or split 2MB page into 4KB pages if required and
      * calculate virtual address into pt.
@@ -980,6 +990,17 @@ map_page(struct AddressSpace *spc, uintptr_t addr, struct Page *page, int flags)
     // LAB 7: Your code here
 
     (void)pdi0, (void)pdi1;
+
+    if (page->class >= 9) return alloc_fill_pt(pd, base, 2 * MB, pdi0, pdi1);
+
+    if (!(pd[pdi0] & PTE_P) && alloc_pt(pd + pdi0) < 0) return -E_NO_MEM;
+    else if (pd[pdi0] & PTE_PS) {
+        pde_t old = pd[pdi0];
+        if (alloc_pt(pd + pdi0) < 0) return -E_NO_MEM;
+        pte_t *pt = KADDR(PTE_ADDR(pd[pdi0]));
+        if (alloc_fill_pt(pt, old & ~PTE_PS, 4 * KB, 0, PT_ENTRY_COUNT) < 0) return -E_NO_MEM;
+    }
+
     pte_t *pt = NULL;
 
     /* If requested region is larger than or equal to 4KB (at least one whole page) */
@@ -1454,7 +1475,15 @@ struct AddressSpace *
 switch_address_space(struct AddressSpace *space) {
     assert(space);
     ///LAB 7: Your code here
-    return NULL;
+
+    if (space == current_space)
+        return space;
+
+    lcr3(space->cr3);
+    struct AddressSpace *prev = current_space;
+    current_space = space;
+
+    return prev;
 }
 
 /* Buffers for filler pages are statically allocated for simplicity
@@ -1716,6 +1745,11 @@ init_memory(void) {
     // NOTE: You need to check if map_physical_region returned 0 everywhere! (and panic otherwise)
     // Map [0, max_memory_map_addr] to [KERN_BASE_ADDR, KERN_BASE_ADDR + max_memory_map_addr] as RW- + ALLOC_WEAK
 
+    res = map_physical_region(&kspace, KERN_BASE_ADDR, 0, max_memory_map_addr, PROT_R | PROT_W | ALLOC_WEAK);
+
+    assert(!res);
+    if (res)
+        panic("init_memory: cannot map kernel!");
 
     extern char __text_end[], __text_start[];
     assert(!((uintptr_t)__text_start & CLASS_MASK(0)));
@@ -1727,12 +1761,22 @@ init_memory(void) {
     // LAB 7: Your code here
     // Map [PADDR(__text_start);PADDR(__text_end)] to [__text_start, __text_end] as RW-
 
+    res = map_physical_region(&kspace, (uintptr_t) __text_start, PADDR(__text_end), __text_end - __text_start, PROT_R | PROT_W);
+
+    assert(!res);
+    if (res)
+        panic("init_memory: cannnot ");
 
     /* Allocate kernel stacks */
 
     // LAB 7: Your code here
     // Map [PADDR(bootstack), PADDR(bootstack) + KERN_STACK_SIZE] to [KERN_STACK_TOP - KERN_STACK_SIZE, KERN_STACK_TOP] as RW-
     // Map [PADDR(pfstack), PADDR(pfstack) + KERN_PF_STACK_SIZE] to [KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE, KERN_PF_STACK_TOP] as RW-
+
+    res = map_physical_region(&kspace, KERN_STACK_TOP - KERN_STACK_SIZE, PADDR(bootstack), KERN_STACK_SIZE, PROT_R | PROT_W);
+    assert(!res);
+    res = map_physical_region(&kspace, KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE, PADDR(pfstack), KERN_PF_STACK_SIZE, PROT_R | PROT_W);
+    assert(!res);
 
 #ifdef SANITIZE_SHADOW_BASE
     init_shadow_pre();
@@ -1745,6 +1789,12 @@ init_memory(void) {
             // LAB 7: Your code here
             // Map [mstart->PhysicalStart, mstart->PhysicalStart+mstart->NumberOfPages*PAGE_SIZE] to
             //     [mstart->VirtualStart, mstart->VirtualStart+mstart->NumberOfPages*PAGE_SIZE] as RW-
+            res = map_physical_region(&kspace,
+                                      mstart->VirtualStart,
+                                      mstart->PhysicalStart,
+                                      mstart->NumberOfPages * PAGE_SIZE,
+                                      PROT_R | PROT_W);
+            assert(!res);
         }
     }
 
@@ -1809,6 +1859,41 @@ init_memory(void) {
     //     [PADDR(bootstack), PADDR(boottop)] as RW-
     // Map [X86ADDR(KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE), KERN_PF_STACK_TOP] to
     //     [PADDR(pfstack), PADDR(pfstacktop)] as RW-
+
+    res = map_physical_region(&kspace,
+                              uefi_lp->FrameBufferBase,
+                              FRAMEBUFFER,
+                              uefi_lp->FrameBufferSize,
+                              PROT_R | PROT_W | PROT_WC);
+    assert(!res);
+
+    res = map_physical_region(&kspace,
+                              0,
+                              X86ADDR(KERN_BASE_ADDR),
+                              MIN(MAX_LOW_ADDR_KERN_SIZE, max_memory_map_addr),
+                              PROT_R | PROT_W);
+    assert(!res);
+            
+    res = map_physical_region(&kspace,
+                              X86ADDR((uintptr_t)__text_start),
+                              PADDR(__text_start),
+                              (ROUNDUP((uintptr_t)__text_end, CLASS_SIZE(0))) - (uintptr_t) __text_start,
+                              PROT_R | PROT_X);
+    assert(!res);
+
+    res = map_physical_region(&kspace,
+                              X86ADDR(KERN_STACK_TOP - KERN_STACK_SIZE),
+                              PADDR(bootstack),
+                              PADDR(bootstacktop) - PADDR(bootstack),
+                              PROT_R | PROT_W);
+    assert(!res);
+
+    res = map_physical_region(&kspace,
+                              X86ADDR(KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE),
+                              PADDR(pfstack),
+                              PADDR(pfstacktop) - PADDR(pfstack),
+                              PROT_R | PROT_W);
+    assert(!res);
 
     if (trace_memory_more) dump_page_table(kspace.pml4);
 
