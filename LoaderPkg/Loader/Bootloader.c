@@ -115,8 +115,8 @@ InitGraphics (
   UINT32 i;
   UINT32 acceptable;
 
-  const UINT32 SCREEN_WIDTH  = 1920;
-  const UINT32 SCREEN_HEIGHT = 1080;
+  const UINT32 SCREEN_WIDTH  = 800;
+  const UINT32 SCREEN_HEIGHT = 480;
 
   ASSERT (LoaderParams != NULL);
 
