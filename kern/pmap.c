@@ -84,9 +84,9 @@ inline static void __attribute__((always_inline))
 list_append(struct List *list, struct List *new) {
     // LAB 6: Your code here
     new->next = list->next;
-    new->next->prev = new;
-
     new->prev = list;
+
+    list->next->prev = new;
     list->next = new;
 }
 
@@ -97,16 +97,12 @@ list_append(struct List *list, struct List *new) {
 inline static struct List *__attribute__((always_inline))
 list_del(struct List *list) {
     // LAB 6: Your code here.
-
-    //assert(!list_empty(list));
-
     list->next->prev = list->prev;
     list->prev->next = list->next;
-
     list_init(list);
-
     return list;
 }
+
 
 static struct Page *alloc_page(int class, int flags);
 
@@ -266,6 +262,33 @@ page_lookup(struct Page *hint, uintptr_t addr, int class, enum PageState type, b
     if (node) assert(!(page2pa(node) & CLASS_MASK(node->class)));
 
     return node;
+}
+
+static void
+page_free(struct Page *page) {
+    while (page != &root) {
+        struct Page *par = page->parent;
+        assert_physical(par);
+        if (par->state == page->state &&
+            PAGE_IS_FREE(par->left) &&
+            PAGE_IS_FREE(par->right)) {
+            free_descriptor(par->left);
+            par->left = NULL;
+
+            free_descriptor(par->right);
+            par->right = NULL;
+
+            if (par->state == ALLOCATABLE_NODE) {
+                assert(list_empty((struct List *)par));
+                list_append(&free_classes[par->class], (struct List *)par);
+            }
+            page = par;
+        } else
+            break;
+    }
+    list_del((struct List *)page);
+    if (page->state == ALLOCATABLE_NODE)
+        list_append(&free_classes[page->class], (struct List *)page);
 }
 
 static void
@@ -503,7 +526,6 @@ dump_memory_lists(void) {
     }
 
 }
-
 
 /*
  * Pretty-print page table
@@ -748,23 +770,60 @@ calc_pages_cnt()
 
 
 void
+dump_page(const struct Page *p)
+{
+    cprintf("Page@%p {\n"
+            "     .head = {\n"
+            "         .next = %p,\n"
+            "         .prev = %p,\n"
+            "     },"
+            "    .left = %p,\n"
+            "    .right = %p,\n"
+            "    .parent = %p,\n"
+            //"    .phy = %p\n",
+            "    .state = %x,\n"
+            "    .refc = %u,\n"
+            //"    .class = %p,\n"
+            //"    .addr = %p,\n"
+            "}\n",
+                p,
+                p->head.next,
+                p->head.prev,
+                p->left,
+                p->right,
+                p->parent,
+                //p->phy,
+                p->state,
+                p->refc
+                //p->class,
+                //p->addr
+                );
+}
+
+
+#define PAGE_CNT 5
+#define PAGE_CLASS 1
+
+void
 check_page_alloc()
 {
-    struct Page *last[2] = {};
-    for (;;)
-    {
-        struct Page *new = alloc_page(0, ALLOC_POOL);
+    struct Page *pages[PAGE_CNT] = {};
+    int head = PAGE_CNT - 1;
 
-        if (!new)
-            break;
-        last[0] = last[1];
-        last[1] = new;
-    }
+    for (struct Page *new_p = alloc_page(PAGE_CLASS, ALLOC_POOL); new_p; new_p = alloc_page(PAGE_CLASS, ALLOC_POOL))
+        pages[(head++) % PAGE_CNT] = new_p;
 
-    for (int i = 0; i < sizeof(last) / sizeof(last[0]); ++i)
-        page_ref(last[i]);
-    for (int i = 0; i < sizeof(last) / sizeof(last[0]); ++i)
-        page_unref(last[i]);
+    for (int i = 0; i < sizeof(pages) / sizeof(pages[0]); ++i)
+        dump_page(pages[i]);
+    dump_memory_lists();
+
+    for (int i = 0; i < sizeof(pages) / sizeof(pages[0]); ++i)
+        page_free(pages[i]);
+        //page_unref(pages[i]);
+
+    cprintf("Deleted\n");
+    for (int i = 0; i < sizeof(pages) / sizeof(pages[0]); ++i)
+        dump_page(pages[i]);
 
     dump_memory_lists();
 }
