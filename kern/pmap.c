@@ -856,7 +856,7 @@ unmap_page(struct AddressSpace *spc, uintptr_t addr, int class) {
         res = alloc_pt(pdp + pdpi0);
         assert(!res);
         pde_t *pd = KADDR(PTE_ADDR(pdp[pdpi0]));
-        res = alloc_fill_pt(pd, old & ~PTE_PS, 2 * MB, 0, PT_ENTRY_COUNT);
+        res = alloc_fill_pt(pd, old & ~PTE_PS, 2 * MB, 0, PD_ENTRY_COUNT);
         inval_start = ROUNDDOWN(inval_start, 1 * GB);
         inval_end = ROUNDUP(inval_end, 1 * GB);
         assert(!res);
@@ -1019,7 +1019,7 @@ map_page(struct AddressSpace *spc, uintptr_t addr, struct Page *page, int flags)
         if (alloc_fill_pt(pt, old & ~PTE_PS, 4 * KB, 0, PT_ENTRY_COUNT) < 0) return -E_NO_MEM;
     }
 
-    pte_t *pt = NULL;
+    pte_t *pt = KADDR(PTE_ADDR(pd[pdi0]));
 
     /* If requested region is larger than or equal to 4KB (at least one whole page) */
 
@@ -1879,9 +1879,9 @@ init_memory(void) {
     //     [PADDR(pfstack), PADDR(pfstacktop)] as RW-
 
     res = map_physical_region(&kspace,
-                              uefi_lp->FrameBufferBase,
-                              FRAMEBUFFER,
-                              uefi_lp->FrameBufferSize,
+                              FRAMEBUFFER, 
+                              uefi_lp->FrameBufferBase, 
+                              uefi_lp->FrameBufferSize, 
                               PROT_R | PROT_W | PROT_WC);
     assert(!res);
 
