@@ -94,22 +94,36 @@ env_init(void) {
      * (don't forget about rounding) */
     // LAB 8: Your code here
 
+    assert(current_space != NULL);
+    envs = (struct Env*)kzalloc_region(NENV * sizeof(envs[0]));
+    if (!envs)
+        panic("env_init: No memory for enviroment array!");
+
     /* Map envs to UENVS read-only,
      * but user-accessible (with PROT_USER_ set) */
     // LAB 8: Your code here
 
+    int res = map_region(&kspace,
+                         UENVS,
+                         &kspace,
+                         (uintptr_t)envs,
+                         NENV * sizeof(envs[0]),
+                         PROT_R | PROT_USER_);
+    if (res < 0)
+        panic("env_init: Cannot map envs array to the userspace");
+
     /* Set up envs array */
 
     // LAB 3: Your code here
-    env_free_list = &env_array[0];
+    env_free_list = &envs[0];
     for (int i = 0; i < NENV; ++i)
     {
-        memset(&env_array[i], 0, sizeof(env_array[i]));
-        env_array[i].env_status = ENV_FREE;
-        env_array[i].env_type = ENV_TYPE_KERNEL;
-        env_array[i].env_link = &env_array[i + 1];
+        memset(&envs[i], 0, sizeof(envs[i]));
+        envs[i].env_status = ENV_FREE;
+        envs[i].env_type = ENV_TYPE_KERNEL;
+        envs[i].env_link = &envs[i + 1];
     }
-    env_array[NENV - 1].env_link = NULL;
+    envs[NENV - 1].env_link = NULL;
 }
 
 /* Allocates and initializes a new environment.
@@ -320,6 +334,10 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
     uintptr_t min_addr = -1,
               max_addr =  0;
 
+    switch_address_space(&env->address_space);
+
+    int res = 0;
+
     struct Proghdr *phs = (struct Proghdr*)(binary + header->e_phoff);
     for (UINT16 i = 0; i < header->e_phnum; ++i)
     {
@@ -329,20 +347,38 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
             continue;
         if (ph->p_filesz > ph->p_memsz)
             return -E_INVALID_EXE;
-        memset((void*)ph->p_va, 0, ph->p_memsz);
+
+        res = map_region(&env->address_space,
+                             ph->p_va,
+                             NULL,
+                             0,
+                             ph->p_memsz,
+                             ALLOC_ZERO | PROT_R | PROT_W | PROT_X | PROT_USER_);
+        if (res < 0)
+            return res;
+        //memset((void*)ph->p_va, 0, ph->p_memsz);
         memcpy((void*)ph->p_va, binary + ph->p_offset, ph->p_filesz);
 
         min_addr = min_uintptr_t(min_addr, ph->p_va);
         max_addr = max_uintptr_t(max_addr, ph->p_va + ph->p_memsz);
     }
 
+    switch_address_space(&kspace);
+
+    res = map_region(&env->address_space,
+                     USER_STACK_TOP - USER_STACK_SIZE,
+                     NULL,
+                     0,
+                     USER_STACK_SIZE,
+                     ALLOC_ZERO | PROT_R | PROT_W | PROT_USER_);
+
+    return 0;
+    /*
     env->binary = binary;
     env->env_tf.tf_rip = header->e_entry;
 
     return bind_functions(env, binary, size, min_addr, max_addr);
-
-    // LAB 8: Your code here
-    return 0;
+    */
 }
 
 /* Allocates a new env with env_alloc, loads the named elf
@@ -409,12 +445,15 @@ env_destroy(struct Env *env) {
      * ENV_DYING. A zombie environment will be freed the next time
      * it traps to the kernel. */
 
+    // LAB 8: Your code here (set in_page_fault = 0)
+    if (env == curenv)
+        in_page_fault = 0;
+
     // LAB 3: Your code here
 
     env_free(env);
     if (env == curenv)
         sched_yield();
-    // LAB 8: Your code here (set in_page_fault = 0)
 }
 
 #ifdef CONFIG_KSPACE
