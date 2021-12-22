@@ -179,7 +179,7 @@ i386_init(void) {
 #endif /* TEST* */
 #endif
 
-    monitor(NULL);
+    //monitor(NULL);
     /* Schedule and run the first user environment! */
     sched_yield();
 }
