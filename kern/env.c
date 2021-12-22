@@ -331,8 +331,13 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
      || header->e_machine != EM_X86_64)
         return -E_INVALID_EXE;
 
+    /*
     uintptr_t min_addr = -1,
               max_addr =  0;
+     */
+
+    env->binary = binary;
+    env->env_tf.tf_rip = header->e_entry;
 
     switch_address_space(&env->address_space);
 
@@ -359,8 +364,10 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
         //memset((void*)ph->p_va, 0, ph->p_memsz);
         memcpy((void*)ph->p_va, binary + ph->p_offset, ph->p_filesz);
 
+        /*
         min_addr = min_uintptr_t(min_addr, ph->p_va);
         max_addr = max_uintptr_t(max_addr, ph->p_va + ph->p_memsz);
+         */
     }
 
     switch_address_space(&kspace);
@@ -374,9 +381,6 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
 
     return 0;
     /*
-    env->binary = binary;
-    env->env_tf.tf_rip = header->e_entry;
-
     return bind_functions(env, binary, size, min_addr, max_addr);
     */
 }
