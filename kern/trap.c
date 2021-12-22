@@ -98,6 +98,27 @@ trapname(int trapno) {
 extern void clock_thdlr();
 extern void timer_thdlr();
 
+extern void divide_thdlr();
+extern void debug_thdlr();
+extern void nmi_thdlr();
+extern void brkpt_thdlr();
+extern void oflow_thdlr();
+extern void bound_thdlr();
+extern void illop_thdlr();
+extern void device_thdlr();
+extern void dblflt_thdlr();
+extern void tss_thdlr();
+extern void segnp_thdlr();
+extern void stack_thdlr();
+extern void gpflt_thdlr();
+extern void pgflt_thdlr();
+extern void fperr_thdlr();
+extern void align_thdlr();
+extern void mchk_thdlr();
+extern void simderr_thdlr();
+
+extern void syscall_thdlr();
+
 void
 trap_init(void) {
     // LAB 4: Your code here
@@ -110,6 +131,30 @@ trap_init(void) {
 
     /* Insert trap handlers into IDT */
     // LAB 8: Your code here
+
+    idt[T_DIVIDE]  = GATE(0, GD_KT, divide_thdlr,  0);
+    idt[T_DEBUG]   = GATE(0, GD_KT, debug_thdlr,   0);
+    idt[T_NMI]     = GATE(0, GD_KT, nmi_thdlr,     0);
+    idt[T_BRKPT]   = GATE(0, GD_KT, brkpt_thdlr,   0);
+    idt[T_OFLOW]   = GATE(0, GD_KT, oflow_thdlr,   0);
+    idt[T_BOUND]   = GATE(0, GD_KT, bound_thdlr,   0);
+    idt[T_ILLOP]   = GATE(0, GD_KT, illop_thdlr,   0);
+    idt[T_DEVICE]  = GATE(0, GD_KT, device_thdlr,  0);
+    idt[T_DBLFLT]  = GATE(0, GD_KT, dblflt_thdlr,  0);
+    idt[T_TSS]     = GATE(0, GD_KT, tss_thdlr,     0);
+    idt[T_SEGNP]   = GATE(0, GD_KT, segnp_thdlr,   0);
+    idt[T_STACK]   = GATE(0, GD_KT, stack_thdlr,   0);
+    idt[T_GPFLT]   = GATE(0, GD_KT, gpflt_thdlr,   0);
+    idt[T_PGFLT]   = GATE(0, GD_KT, pgflt_thdlr,   0);
+    idt[T_FPERR]   = GATE(0, GD_KT, fperr_thdlr,   0);
+    idt[T_ALIGN]   = GATE(0, GD_KT, align_thdlr,   0);
+    idt[T_MCHK]    = GATE(0, GD_KT, mchk_thdlr,    0);
+    idt[T_SIMDERR] = GATE(0, GD_KT, simderr_thdlr, 0);
+
+/* These are arbitrarily chosen, but with care not to overlap
+ * processor defined exceptions or interrupt vectors.*/
+#define T_SYSCALL 48  /* system call */
+#define T_DEFAULT 500 /* catchall */
 
     /* Setup #PF handler dedicated stack
      * It should be switched on #PF because
