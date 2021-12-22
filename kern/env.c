@@ -309,7 +309,6 @@ static uintptr_t min_uintptr_t(uintptr_t a, uintptr_t b)
 static int
 load_icode(struct Env *env, uint8_t *binary, size_t size) {
     // LAB 3: Your code here
-<<<<<<< HEAD
 
     struct Elf *header = (struct Elf*)binary;
     if (
@@ -341,10 +340,9 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
     env->env_tf.tf_rip = header->e_entry;
 
     return bind_functions(env, binary, size, min_addr, max_addr);
-=======
+
     // LAB 8: Your code here
     return 0;
->>>>>>> origin/lab8
 }
 
 /* Allocates a new env with env_alloc, loads the named elf
@@ -412,14 +410,11 @@ env_destroy(struct Env *env) {
      * it traps to the kernel. */
 
     // LAB 3: Your code here
-<<<<<<< HEAD
 
     env_free(env);
     if (env == curenv)
         sched_yield();
-=======
     // LAB 8: Your code here (set in_page_fault = 0)
->>>>>>> origin/lab8
 }
 
 #ifdef CONFIG_KSPACE
