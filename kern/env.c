@@ -309,20 +309,10 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
  *   You must also do something with the program's entry point,
  *   to make sure that the environment starts executing there.
  *   What?  (See env_run() and env_pop_tf() below.) */
-
-static uintptr_t max_uintptr_t(uintptr_t a, uintptr_t b)
-{
-    return a < b ? b : a;
-}
-
-static uintptr_t min_uintptr_t(uintptr_t a, uintptr_t b)
-{
-    return a < b ? a : b;
-}
-
 static int
 load_icode(struct Env *env, uint8_t *binary, size_t size) {
     // LAB 3: Your code here
+    // LAB 8: Your code here
 
     struct Elf *header = (struct Elf*)binary;
     if (
@@ -368,6 +358,19 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
         min_addr = min_uintptr_t(min_addr, ph->p_va);
         max_addr = max_uintptr_t(max_addr, ph->p_va + ph->p_memsz);
          */
+        int flags = PROT_R | PROT_USER_;
+        if (ph->p_flags & ELF_PROG_FLAG_WRITE) {
+            flags |= PROT_W;
+        }
+        if (ph->p_flags & ELF_PROG_FLAG_EXEC) {
+            flags |= PROT_X;
+        }
+
+        res = map_region(&env->address_space, ph->p_va, &env->address_space,
+                         ph->p_va, ph->p_memsz, flags);
+        if (res < 0) {
+            return res;
+        }
     }
 
     switch_address_space(&kspace);
@@ -384,6 +387,7 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
     return bind_functions(env, binary, size, min_addr, max_addr);
     */
 }
+
 
 /* Allocates a new env with env_alloc, loads the named elf
  * binary into it with load_icode, and sets its env_type.
@@ -562,6 +566,7 @@ env_run(struct Env *env) {
     env->env_status = ENV_RUNNING;
     env->env_runs++;
 
+    switch_address_space(&env->address_space);
     env_pop_tf(&env->env_tf);
 
     while(1) {}
