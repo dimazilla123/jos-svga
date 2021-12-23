@@ -278,6 +278,7 @@ trap_dispatch(struct Trapframe *tf) {
         return;
     case T_BRKPT:
         // LAB 8: Your code here
+        print_trapframe(tf);
         monitor(NULL);
         return;
     case IRQ_OFFSET + IRQ_SPURIOUS:
