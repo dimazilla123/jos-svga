@@ -151,10 +151,8 @@ trap_init(void) {
     idt[T_MCHK]    = GATE(0, GD_KT, mchk_thdlr,    0);
     idt[T_SIMDERR] = GATE(0, GD_KT, simderr_thdlr, 0);
 
-/* These are arbitrarily chosen, but with care not to overlap
- * processor defined exceptions or interrupt vectors.*/
-#define T_SYSCALL 48  /* system call */
-#define T_DEFAULT 500 /* catchall */
+    idt[T_BRKPT]   = GATE(0, GD_KT, brkpt_thdlr,   3);
+    idt[T_SYSCALL] = GATE(0, GD_KT, syscall_thdlr, 3);  /* system call */
 
     /* Setup #PF handler dedicated stack
      * It should be switched on #PF because
@@ -280,6 +278,7 @@ trap_dispatch(struct Trapframe *tf) {
         return;
     case T_BRKPT:
         // LAB 8: Your code here
+        monitor(NULL);
         return;
     case IRQ_OFFSET + IRQ_SPURIOUS:
         /* Handle spurious interrupts
