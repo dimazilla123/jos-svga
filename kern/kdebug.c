@@ -55,6 +55,36 @@ load_user_dwarf_info(struct Dwarf_Addrs *addrs) {
 
     /* Load debug sections from curenv->binary elf image */
     // LAB 8: Your code here
+
+    struct Elf *elf = (struct Elf*)binary;
+
+    if (elf->e_magic != ELF_MAGIC)
+        panic("User program ELF magic does not match!");
+
+    if (elf->e_shentsize != sizeof(struct Secthdr))
+        panic("User program ELF section size does not match!");
+
+    if (elf->e_shstrndx == ELF_SHN_UNDEF)
+        panic("User program ELF section type is undefined!");
+
+    struct Secthdr* elf_sections = (struct Secthdr*)(binary + elf->e_shoff);
+
+    const char* shstrtab = (const char*)(binary + elf_sections[elf->e_shstrndx].sh_offset);
+
+    for (int i = 0; i < elf->e_shnum; i++)
+    {
+        struct Secthdr* section = &elf_sections[i];
+
+        for (int j = 0; j < sizeof(sections) / sizeof(sections[0]); j++)
+        {
+            if (strcmp(shstrtab + section->sh_name, sections[j].name) == 0)
+            {
+                *sections[j].start = (uint8_t*)binary + section->sh_offset;
+                *sections[j].end   = *sections[j].start + section->sh_size;
+            }
+        }   
+    }
+
 }
 
 #define UNKNOWN       "<unknown>"
@@ -81,6 +111,8 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
     /* Temporarily load kernel cr3 and return back once done.
     * Make sure that you fully understand why it is necessary. */
     // LAB 8: Your code here
+
+    struct AddressSpace *prev = switch_address_space(&kspace);
 
     /* Load dwarf section pointers from either
      * currently running program binary or use
@@ -122,6 +154,8 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
     if (res < 0) goto error;
     strncpy(info->rip_fn_name, tmp_buf, RIPDEBUG_BUFSIZ);
 error:
+
+    switch_address_space(prev);
     return res;
 }
 

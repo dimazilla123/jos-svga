@@ -2095,7 +2095,23 @@ static uintptr_t user_mem_check_addr;
 int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm) {
     // LAB 8: Your code here
-    return -E_FAULT;
+    uintptr_t virtual_address = (uintptr_t)va;
+    uintptr_t end = virtual_address + len;
+
+    while (virtual_address < end)
+    {
+        struct Page* page = page_lookup_virtual(env->address_space.root, (uintptr_t)virtual_address, 0, 0);
+        if (
+               page->phy == NULL
+            || (PAGE_PROT(page->state) & PAGE_PROT(perm)) != PAGE_PROT(perm)
+            )
+        {
+            user_mem_check_addr = virtual_address;
+            return -E_FAULT;
+        }
+        virtual_address += CLASS_SIZE(page->phy->class);
+    }
+    return 0;
 }
 
 void
