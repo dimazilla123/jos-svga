@@ -81,6 +81,8 @@ sys_env_destroy(envid_t envid) {
 static void
 sys_yield(void) {
     // LAB 9: Your code here
+
+    sched_yield();
 }
 
 /* Allocate a new environment.
@@ -96,7 +98,16 @@ sys_exofork(void) {
      * will appear to return 0. */
 
     // LAB 9: Your code here
-    return 0;
+
+    struct Env *child_ptr = NULL;
+    int res = env_alloc(&child_ptr, 0, ENV_NOT_RUNNABLE);
+    if (res < 0)
+        return res;
+
+    nosan_memcpy(&child_ptr->env_tf, &curenv->env_tf, sizeof(struct Trapframe));
+
+    child_ptr->env_tf.tf_regs.reg_rax = 0;
+    return child_ptr->env_id;
 }
 
 /* Set envid's env_status to status, which must be ENV_RUNNABLE
@@ -115,6 +126,12 @@ sys_env_set_status(envid_t envid, int status) {
      * envid's status. */
 
     // LAB 9: Your code here
+
+    struct Env *env = NULL;
+    int res = envid2env(envid, &env, 1);
+    if (res < 0)
+        return res;
+    env->env_status = status;
 
     return 0;
 }
@@ -157,9 +174,22 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func) {
  *  -E_INVAL if perm is inappropriate (see above).
  *  -E_NO_MEM if there's no memory to allocate the new page,
  *      or to allocate any necessary page tables. */
+
+static bool
+is_align(uintptr_t va)
+{
+    return va <= MAX_USER_ADDRESS && (va & CLASS_MASK(0)) == 0;
+}
+
 static int
 sys_alloc_region(envid_t envid, uintptr_t addr, size_t size, int perm) {
     // LAB 9: Your code here:
+
+    if (!is_align(addr))
+        return -E_INVAL;
+
+    //int res = alloc_r
+
     return 0;
 }
 
@@ -188,6 +218,22 @@ sys_map_region(envid_t srcenvid, uintptr_t srcva,
                envid_t dstenvid, uintptr_t dstva, size_t size, int perm) {
     // LAB 9: Your code here
 
+    struct Env *src = NULL,
+               *dst = NULL;
+    int res = envid2env(srcenvid, &src, 1);
+    if (res < 0)
+        return res;
+    res = envid2env(dstenvid, &dst, 1);
+    if (res < 0)
+        return res;
+
+    if (!is_align(srcva) || !is_align(dstva))
+        return -E_INVAL;
+
+    res = map_region(&dst->address_space, dstva, &src->address_space, srcva, size, perm);
+    if (res < 0)
+        return res;
+
     return 0;
 }
 
@@ -203,6 +249,16 @@ sys_unmap_region(envid_t envid, uintptr_t va, size_t size) {
     /* Hint: This function is a wrapper around unmap_region(). */
 
     // LAB 9: Your code here
+
+    if (!is_align(va))
+        return -E_INVAL;
+
+    struct Env *env = NULL;
+    int res = envid2env(envid, &env, 1);
+    if (res < 0)
+        return res;
+
+    unmap_region(&env->address_space, va, size);
 
     return 0;
 }
@@ -319,7 +375,18 @@ syscall(uintptr_t syscallno, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t
             return sys_getenvid();
         case SYS_env_destroy:
             return sys_env_destroy(a1);
-    }
     // LAB 9: Your code here
+        case SYS_exofork:
+            return sys_exofork();
+        case SYS_env_set_status:
+            return sys_env_set_status((envid_t)a1, (int)a2);
+        case SYS_alloc_region:
+            return sys_alloc_region((envid_t)a1, (uintptr_t)a2, (size_t)a3, (int)a4);
+        case SYS_map_region:
+            return sys_map_region((envid_t)a1, (uintptr_t)a2, (envid_t)a3, (uintptr_t)a4, (size_t)a5, (int)a6);
+        case SYS_unmap_region:
+            return sys_unmap_region((envid_t)a1, (uintptr_t)a2, (size_t)a3);
+
+    }
     return -E_NO_SYS;
 }
