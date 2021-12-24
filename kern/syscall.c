@@ -128,6 +128,9 @@ sys_env_set_status(envid_t envid, int status) {
 
     // LAB 9: Your code here
 
+    if (status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE)
+        return -E_INVAL;
+
     struct Env *env = NULL;
     int res = envid2env(envid, &env, 1);
     if (res < 0)
@@ -192,10 +195,21 @@ static int
 sys_alloc_region(envid_t envid, uintptr_t addr, size_t size, int perm) {
     // LAB 9: Your code here:
 
-    if (!is_align(addr))
+    if (!is_align(addr)
+     || (perm & (~(PROT_ALL | ALLOC_ZERO | ALLOC_ONE)))
+     || (perm & (ALLOC_ONE | ALLOC_ZERO)))
         return -E_INVAL;
 
-    //int res = alloc_r
+    perm |= perm & ALLOC_ONE ? ALLOC_ONE : ALLOC_ZERO;
+    perm |= PROT_LAZY | PROT_USER_;
+
+    struct Env *env = NULL;
+    int res = envid2env(envid, &env, true);
+    if (res < 0) return res;
+
+    unmap_region(&env->address_space, addr, size);
+    res = map_region(&env->address_space, addr, NULL, 0, size, perm);
+    if (res < 0) return res;
 
     return 0;
 }
@@ -225,6 +239,11 @@ sys_map_region(envid_t srcenvid, uintptr_t srcva,
                envid_t dstenvid, uintptr_t dstva, size_t size, int perm) {
     // LAB 9: Your code here
 
+    if (perm & (~PROT_ALL)) return -E_INVAL;
+
+    if (!is_align(srcva) || !is_align(dstva))
+        return -E_INVAL;
+
     struct Env *src = NULL,
                *dst = NULL;
     int res = envid2env(srcenvid, &src, 1);
@@ -234,9 +253,17 @@ sys_map_region(envid_t srcenvid, uintptr_t srcva,
     if (res < 0)
         return res;
 
-    if (!is_align(srcva) || !is_align(dstva))
-        return -E_INVAL;
+    // res = user_mem_check(srcenv, (void*)srcva, CLASS_SIZE(0), PROT_R | PROT_USER_);
+    // if (res < 0) return -E_INVAL;
 
+    // if (perm & PROT_W) {
+    //     res = user_mem_check(srcenv, (void*)srcva, CLASS_SIZE(0), PROT_W | PROT_USER_);
+    //     if (res < 0) return -E_INVAL;
+    // }
+
+    perm |= PROT_USER_;
+
+    unmap_region(&dst->address_space, dstva, size);
     res = map_region(&dst->address_space, dstva, &src->address_space, srcva, size, perm);
     if (res < 0)
         return res;
@@ -393,7 +420,7 @@ syscall(uintptr_t syscallno, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t
             return sys_map_region((envid_t)a1, (uintptr_t)a2, (envid_t)a3, (uintptr_t)a4, (size_t)a5, (int)a6);
         case SYS_unmap_region:
             return sys_unmap_region((envid_t)a1, (uintptr_t)a2, (size_t)a3);
-
+        default:
+            return -E_NO_SYS;
     }
-    return -E_NO_SYS;
 }
