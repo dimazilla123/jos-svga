@@ -420,6 +420,12 @@ syscall(uintptr_t syscallno, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t
             return sys_map_region((envid_t)a1, (uintptr_t)a2, (envid_t)a3, (uintptr_t)a4, (size_t)a5, (int)a6);
         case SYS_unmap_region:
             return sys_unmap_region((envid_t)a1, (uintptr_t)a2, (size_t)a3);
+        case SYS_env_set_pgfault_upcall:
+            return sys_env_set_pgfault_upcall((envid_t)a1, (void*)a2);
+        case SYS_ipc_recv:
+            return sys_ipc_recv((uintptr_t)a1, (uintptr_t)a2);
+        case SYS_ipc_try_send:
+            return sys_ipc_try_send((envid_t)a1, (uint32_t)a2, (uintptr_t)a3, (size_t)a4, (int)a5);
         default:
             return -E_NO_SYS;
     }
