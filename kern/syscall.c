@@ -100,11 +100,12 @@ sys_exofork(void) {
     // LAB 9: Your code here
 
     struct Env *child_ptr = NULL;
-    int res = env_alloc(&child_ptr, 0, ENV_NOT_RUNNABLE);
+    int res = env_alloc(&child_ptr, curenv->env_id, ENV_TYPE_USER);
     if (res < 0)
         return res;
 
-    nosan_memcpy(&child_ptr->env_tf, &curenv->env_tf, sizeof(struct Trapframe));
+    child_ptr->env_status = ENV_NOT_RUNNABLE;
+    child_ptr->env_tf = curenv->env_tf;
 
     child_ptr->env_tf.tf_regs.reg_rax = 0;
     return child_ptr->env_id;
@@ -148,6 +149,12 @@ static int
 sys_env_set_pgfault_upcall(envid_t envid, void *func) {
     // LAB 9: Your code here:
 
+    struct Env *env;
+    int res = envid2env(envid, &env, 1);
+    if (res < 0)
+        return res;
+
+    env->env_pgfault_upcall = func;
     return 0;
 }
 
