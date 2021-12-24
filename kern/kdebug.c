@@ -10,6 +10,32 @@
 #include <kern/env.h>
 #include <inc/uefi.h>
 
+void backtrace()
+{
+    struct StackFrameFooter;
+
+    struct StackFrameFooter
+    {
+        struct StackFrameFooter *next;
+        uintptr_t ret;
+    };
+    cprintf("Stack backtrace:\n");
+    struct StackFrameFooter *frame = (struct StackFrameFooter*)read_rbp();
+
+    //int res = debuginfo_rip((uintptr_t)&mon_help, &info);
+
+    while (frame != NULL)
+    {
+        struct Ripdebuginfo info = {};
+        int res = debuginfo_rip(frame->ret, &info);
+        cprintf("  rbp %016lx  rip %016lx ", (uintptr_t)frame, frame->ret);
+        if (!res)
+            cprintf("    %s:%d: %s+%ld", info.rip_file, info.rip_line, info.rip_fn_name, frame->ret - info.rip_fn_addr);
+        cputchar('\n');
+        frame = frame->next;
+    }
+}
+
 void
 load_kernel_dwarf_info(struct Dwarf_Addrs *addrs) {
     addrs->aranges_begin = (uint8_t *)(uefi_lp->DebugArangesStart);
