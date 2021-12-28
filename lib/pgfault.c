@@ -42,7 +42,7 @@ add_pgfault_handler(pf_handler_t handler) {
     if (!_pfhandler_inititiallized) {
         /* First time through! */
         // LAB 9: Your code here:
-        
+
         res = sys_alloc_region(
                                0,
                                (void*)(USER_EXCEPTION_STACK_TOP - USER_EXCEPTION_STACK_SIZE),
