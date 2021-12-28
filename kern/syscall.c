@@ -421,8 +421,12 @@ sys_ipc_recv(uintptr_t dstva, uintptr_t maxsize) {
  */
 static int
 sys_region_refs(uintptr_t addr, size_t size, uintptr_t addr2, uintptr_t size2) {
-    // LAB 10: Your code here
-    return 0;
+    assert(curenv);
+
+    int refs1 = region_maxref(&curenv->address_space, addr,  size);
+    int refs2 = region_maxref(&curenv->address_space, addr2, size2);
+
+    return refs2 - refs1;
 }
 
 /* Dispatches to the correct kernel function, passing the arguments. */
@@ -473,6 +477,9 @@ syscall(uintptr_t syscallno, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t
             return sys_ipc_recv((uintptr_t)a1, (uintptr_t)a2);
         case SYS_ipc_try_send:
             return sys_ipc_try_send((envid_t)a1, (uint32_t)a2, (uintptr_t)a3, (size_t)a4, (int)a5);
+    // LAB 10:
+        case SYS_region_refs:
+            return sys_region_refs((uintptr_t)a1, (size_t)a2, (uintptr_t)a3, (uintptr_t)a4);
         default:
             return -E_NO_SYS;
     }
