@@ -197,7 +197,7 @@ sys_alloc_region(envid_t envid, uintptr_t addr, size_t size, int perm) {
 
     if (!is_align(addr)
      || (perm & (~(PROT_ALL | ALLOC_ZERO | ALLOC_ONE)))
-     || (perm & (ALLOC_ONE | ALLOC_ZERO)))
+     || ((perm & ALLOC_ONE) && (perm & ALLOC_ZERO)))
         return -E_INVAL;
 
     perm |= perm & ALLOC_ONE ? ALLOC_ONE : ALLOC_ZERO;
@@ -341,6 +341,41 @@ sys_unmap_region(envid_t envid, uintptr_t va, size_t size) {
 static int
 sys_ipc_try_send(envid_t envid, uint32_t value, uintptr_t srcva, size_t size, int perm) {
     // LAB 9: Your code here
+
+    struct Env *dstenv = NULL;
+    int res = envid2env(envid, &dstenv, false);
+    if (res < 0) return res;
+
+    if (!dstenv->env_ipc_recving) return -E_IPC_NOT_RECV;
+
+    size_t maxsz = dstenv->env_ipc_maxsz < size ? dstenv->env_ipc_maxsz : size;
+
+    if (dstenv->env_ipc_dstva + maxsz < MAX_USER_ADDRESS && srcva + maxsz < MAX_USER_ADDRESS) {
+        if (srcva & CLASS_SIZE(0)) return -E_INVAL;
+
+        res = user_mem_check(curenv, (void*)srcva, size, PROT_R | PROT_USER_);
+        if (res < 0) return res;
+
+        if (perm & PROT_W) {
+            res = user_mem_check(curenv, (void*)srcva, size, PROT_W | PROT_USER_);
+            if (res < 0) return res;
+        }
+        
+        res = map_region(&dstenv->address_space, dstenv->env_ipc_dstva,
+                         &curenv->address_space, srcva, maxsz, perm | PROT_SHARE | PROT_USER_);
+        if (res < 0) return res;
+    }
+    else
+        perm = 0;
+
+    dstenv->env_ipc_maxsz   = maxsz;
+    dstenv->env_ipc_recving = false;
+    dstenv->env_ipc_from    = curenv->env_id;
+    dstenv->env_ipc_value   = value;
+    dstenv->env_ipc_perm    = perm;
+
+    dstenv->env_status = ENV_RUNNABLE;
+    dstenv->env_tf.tf_regs.reg_rax = 0;
     return 0;
 }
 
@@ -361,7 +396,19 @@ sys_ipc_try_send(envid_t envid, uint32_t value, uintptr_t srcva, size_t size, in
 static int
 sys_ipc_recv(uintptr_t dstva, uintptr_t maxsize) {
     // LAB 9: Your code here
-    return 0;
+
+    assert(curenv != NULL);
+
+    if (dstva + maxsize < MAX_USER_ADDRESS && (dstva & CLASS_MASK(0))) return -E_INVAL;
+    if (dstva + maxsize < MAX_USER_ADDRESS && maxsize == 0) return -E_INVAL;
+    if (maxsize & CLASS_MASK(0)) return -E_INVAL;
+
+    curenv->env_ipc_recving = true;
+    curenv->env_ipc_dstva = dstva;
+    curenv->env_ipc_maxsz = maxsize;
+
+    curenv->env_status = ENV_NOT_RUNNABLE;
+    sched_yield();
 }
 
 /*
