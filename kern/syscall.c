@@ -253,17 +253,8 @@ sys_map_region(envid_t srcenvid, uintptr_t srcva,
     if (res < 0)
         return res;
 
-    // res = user_mem_check(srcenv, (void*)srcva, CLASS_SIZE(0), PROT_R | PROT_USER_);
-    // if (res < 0) return -E_INVAL;
-
-    // if (perm & PROT_W) {
-    //     res = user_mem_check(srcenv, (void*)srcva, CLASS_SIZE(0), PROT_W | PROT_USER_);
-    //     if (res < 0) return -E_INVAL;
-    // }
-
     perm |= PROT_USER_;
 
-    unmap_region(&dst->address_space, dstva, size);
     res = map_region(&dst->address_space, dstva, &src->address_space, srcva, size, perm);
     if (res < 0)
         return res;
