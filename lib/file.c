@@ -123,7 +123,7 @@ devfile_read(struct Fd *fd, void *buf, size_t n) {
 
     memcpy(buf, fsipcbuf.readRet.ret_buf, ret);
 
-    return 0;
+    return ret;
 }
 
 /* Write at most 'n' bytes from 'buf' to 'fd' at the current seek position.
