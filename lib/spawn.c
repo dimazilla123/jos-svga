@@ -285,5 +285,25 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
     /* Map read section conents to child */
     /* Unmap it from parent */
 
-    return 0;
+    res = 0;
+
+    res = sys_alloc_region(thisenv->env_id, UTEMP, memsz, PROT_RW | PROT_X | ALLOC_ZERO);
+    if (res < 0) return res;
+
+    res = seek(fd, fileoffset);
+    if (res < 0)
+        goto clean;
+
+    res = readn(fd, UTEMP, filesz);
+    if (res < 0)
+        goto clean;
+
+    res = sys_map_region(thisenv->env_id, UTEMP, child, (void*)va, memsz, perm);
+    if (res < 0)
+        goto clean;
+
+clean:
+    sys_unmap_region(thisenv->env_id, UTEMP, memsz);
+    return res;
+
 }

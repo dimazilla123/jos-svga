@@ -415,6 +415,39 @@ sys_ipc_recv(uintptr_t dstva, uintptr_t maxsize) {
 static int
 sys_env_set_trapframe(envid_t envid, struct Trapframe *tf) {
     // LAB 11: Your code here
+
+    // modified copypaste from env_alloc
+    struct Env *env = NULL;
+    int res = envid2env(envid, &env, true);
+    if (res < 0)
+        return res;
+    
+    res = user_mem_check(env, tf, sizeof(struct Trapframe), PROT_R);
+    if (res < 0)
+        return res;
+
+    nosan_memcpy(&env->env_tf, tf, sizeof(struct Trapframe));
+
+    env->env_tf.tf_ds = GD_UD | 3;
+    env->env_tf.tf_es = GD_UD | 3;
+    env->env_tf.tf_ss = GD_UD | 3;
+    env->env_tf.tf_cs = GD_UT | 3;
+
+    // Override flags
+    env->env_tf.tf_rflags &= ~(
+                               FL_IOPL_3 |
+                               FL_IF     |
+                               FL_TF     |
+                               FL_NT     |
+                               FL_RF     |
+                               FL_VM     |
+                               FL_AC     |
+                               FL_VIF    |
+                               FL_VIP    |
+                               FL_ID
+                               );
+    env->env_tf.tf_rflags |= FL_IF | FL_IOPL_0;
+
     return 0;
 }
 
@@ -461,7 +494,6 @@ syscall(uintptr_t syscallno, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t
 
     // LAB 8: Your code here
 
-    // LAB 11: Your code here
 
     switch (syscallno)
     {
@@ -493,6 +525,9 @@ syscall(uintptr_t syscallno, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t
     // LAB 10:
         case SYS_region_refs:
             return sys_region_refs((uintptr_t)a1, (size_t)a2, (uintptr_t)a3, (uintptr_t)a4);
+    // LAB 11: Your code here
+        case SYS_env_set_trapframe:
+            sys_env_set_trapframe((envid_t)a1, (struct Trapframe *)a2);
         default:
             return -E_NO_SYS;
     }
