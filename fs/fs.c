@@ -61,7 +61,18 @@ alloc_block(void) {
 
     // LAB 10: Your code here
 
-    return 0;
+    blockno_t b = 2;
+    for (; b < super->s_nblocks; ++b)
+        if (TSTBIT(bitmap, b))
+            break;
+
+    if (b == super->s_nblocks)
+        return 0;
+
+    CLRBIT(bitmap, b);
+    flush_block(diskaddr(2 + b / BLKBITSIZE));
+
+    return b;
 }
 
 /* Validate the file system bitmap.
