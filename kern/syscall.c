@@ -527,7 +527,7 @@ syscall(uintptr_t syscallno, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t
             return sys_region_refs((uintptr_t)a1, (size_t)a2, (uintptr_t)a3, (uintptr_t)a4);
     // LAB 11: Your code here
         case SYS_env_set_trapframe:
-            sys_env_set_trapframe((envid_t)a1, (struct Trapframe *)a2);
+            return sys_env_set_trapframe((envid_t)a1, (struct Trapframe *)a2);
         default:
             return -E_NO_SYS;
     }
