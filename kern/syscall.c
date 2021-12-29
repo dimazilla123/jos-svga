@@ -186,16 +186,16 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func) {
  *      or to allocate any necessary page tables. */
 
 static bool
-is_align(uintptr_t va)
+is_align(uintptr_t va, uintptr_t size)
 {
-    return va <= MAX_USER_ADDRESS && (va & CLASS_MASK(0)) == 0;
+    return va + size <= MAX_USER_ADDRESS && (va & CLASS_MASK(0)) == 0;
 }
 
 static int
 sys_alloc_region(envid_t envid, uintptr_t addr, size_t size, int perm) {
     // LAB 9: Your code here:
 
-    if (!is_align(addr)
+    if (!is_align(addr, size)
      || (perm & (~(PROT_ALL | ALLOC_ZERO | ALLOC_ONE)))
      || ((perm & ALLOC_ONE) && (perm & ALLOC_ZERO)))
         return -E_INVAL;
@@ -241,7 +241,7 @@ sys_map_region(envid_t srcenvid, uintptr_t srcva,
 
     if (perm & (~PROT_ALL)) return -E_INVAL;
 
-    if (!is_align(srcva) || !is_align(dstva))
+    if (!is_align(srcva, size) || !is_align(dstva, size))
         return -E_INVAL;
 
     struct Env *src = NULL,
@@ -275,7 +275,7 @@ sys_unmap_region(envid_t envid, uintptr_t va, size_t size) {
 
     // LAB 9: Your code here
 
-    if (!is_align(va))
+    if (!is_align(va, size))
         return -E_INVAL;
 
     struct Env *env = NULL;
@@ -342,7 +342,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, uintptr_t srcva, size_t size, in
     size_t maxsz = dstenv->env_ipc_maxsz < size ? dstenv->env_ipc_maxsz : size;
 
     if (dstenv->env_ipc_dstva + maxsz < MAX_USER_ADDRESS && srcva + maxsz < MAX_USER_ADDRESS) {
-        if (srcva & CLASS_SIZE(0)) return -E_INVAL;
+        if (srcva & CLASS_MASK(0)) return -E_INVAL;
 
         res = user_mem_check(curenv, (void*)srcva, size, PROT_R | PROT_USER_);
         if (res < 0) return res;
@@ -411,17 +411,21 @@ sys_ipc_recv(uintptr_t dstva, uintptr_t maxsize) {
  * Use region_maxref() here.
  */
 static int
-sys_region_refs(uintptr_t addr, size_t size, uintptr_t addr2, uintptr_t size2) {
-    assert(curenv);
+sys_region_refs(uintptr_t addr, size_t size, uintptr_t addr2, size_t size2) {
+    // LAB 10: Your code here
 
-    int refs1 = region_maxref(&curenv->address_space, addr,  size);
-    int refs2 = region_maxref(&curenv->address_space, addr2, size2);
+    if (addr + size > MAX_USER_ADDRESS) return -E_INVAL;
 
-    return refs2 - refs1;
+    int reg1_cnt = region_maxref(&curenv->address_space, addr, size);
+    int reg2_cnt = 0;
+
+    if (addr2 + size2 < MAX_USER_ADDRESS)
+        reg2_cnt = region_maxref(&curenv->address_space, addr2, size2);
+
+    int diff = reg2_cnt - reg1_cnt;
+
+    return (diff < 0 ? -diff : diff);
 }
-
-/* Dispatches to the correct kernel function, passing the arguments. */
-
 /*
 typedef int (*syscall_t)(envid_t);
 
