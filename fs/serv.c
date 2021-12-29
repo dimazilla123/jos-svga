@@ -197,7 +197,25 @@ serve_read(envid_t envid, union Fsipc *ipc) {
 
     // LAB 10: Your code here
 
-    return 0;
+    struct OpenFile *openfile = NULL;
+    int res = openfile_lookup(envid, req->req_fileid, &openfile);
+    if (res < 0)
+        return res;
+
+    if (req->req_n > sizeof(ipc->readRet.ret_buf))
+        req->req_n = sizeof(ipc->readRet.ret_buf);
+
+    ssize_t read_bytes = file_read(
+                                  openfile->o_file,
+                                  &ipc->readRet.ret_buf,
+                                  req->req_n,
+                                  openfile->o_fd->fd_offset
+                                  );
+    if (read_bytes < 0)
+        return read_bytes;
+
+    openfile->o_fd->fd_offset += read_bytes;
+    return read_bytes;
 }
 
 /* Write req->req_n bytes from req->req_buf to req_fileid, starting at
@@ -212,7 +230,25 @@ serve_write(envid_t envid, union Fsipc *ipc) {
 
     // LAB 10: Your code here
 
-    return 0;
+    struct OpenFile *openfile = NULL;
+    int res = openfile_lookup(envid, req->req_fileid, &openfile);
+    if (res < 0)
+        return res;
+
+    if (req->req_n > sizeof(req->req_buf))
+        return -E_INVAL;
+
+    ssize_t written_bytes = file_write(
+                                      openfile->o_file,
+                                      &req->req_buf,
+                                      req->req_n,
+                                      openfile->o_fd->fd_offset
+                                      );
+    if (written_bytes < 0)
+        return written_bytes;
+
+    openfile->o_fd->fd_offset += written_bytes;
+    return written_bytes;
 }
 
 /* Stat ipc->stat.req_fileid.  Return the file's struct Stat to the
