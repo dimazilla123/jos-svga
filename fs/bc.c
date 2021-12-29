@@ -33,6 +33,16 @@ bc_pgfault(struct UTrapframe *utf) {
      * the disk. */
     // LAB 10: Your code here
 
+    addr = ROUNDDOWN(addr, BLKSIZE);
+
+    int res = sys_alloc_region(thisenv->env_id, addr, BLKSIZE, PTE_SYSCALL);
+    if (res)
+        return 0;
+
+    res = ide_read(blockno * BLKSECTS, addr, BLKSECTS);
+    if (res)
+        return 0;
+
     return 1;
 }
 
@@ -43,6 +53,8 @@ bc_pgfault(struct UTrapframe *utf) {
  * Hint: Use is_page_present, is_page_dirty, and ide_write.
  * Hint: Use the PTE_SYSCALL constant when calling sys_page_map.
  * Hint: Don't forget to round addr down. */
+
+
 void
 flush_block(void *addr) {
     blockno_t blockno = ((uintptr_t)addr - (uintptr_t)DISKMAP) / BLKSIZE;
@@ -53,6 +65,30 @@ flush_block(void *addr) {
         panic("reading non-existent block %08x out of %08x\n", blockno, super->s_nblocks);
 
     // LAB 10: Your code here.
+
+    void *blockptr = diskaddr(blockno);//ROUNDDOWN(addr, BLKSIZE);
+
+    pte_t page_status = get_uvpt_entry(addr);
+
+    if (!(page_status & PTE_P))
+        return;
+
+    if (page_status & PTE_D)
+    {
+        int res = ide_write(blockno * BLKSECTS, blockptr, BLKSECTS);
+        if (res)
+            panic("flush_block: ide_write error");
+        res = sys_map_region(
+                            thisenv->env_id,
+                            blockptr,
+                            thisenv->env_id,
+                            blockptr,
+                            BLKSIZE,
+                            PROT_COMBINE
+                            );
+        if (res)
+            panic("flush_block: cannot map region");
+    }
 
 
     assert(!is_page_dirty(addr));
