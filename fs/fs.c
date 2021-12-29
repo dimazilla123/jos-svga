@@ -142,6 +142,31 @@ file_block_walk(struct File *f, blockno_t filebno, blockno_t **ppdiskbno, bool a
 
     *ppdiskbno = 0;
 
+    if (filebno >= NDIRECT + NINDIRECT)
+        return -E_INVAL;
+
+    if (filebno < NDIRECT)
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+        *ppdiskbno = &f->f_direct[filebno];
+        #pragma GCC diagnostic pop
+
+        return 0;
+    }
+
+    if (f->f_indirect == 0)
+    {
+        if (!alloc)
+            return -E_NOT_FOUND;
+        f->f_indirect = alloc_block();
+        if (f->f_indirect == 0)
+            return -E_NO_DISK;
+    }
+
+    blockno_t *indirect_block = (blockno_t*)diskaddr(f->f_indirect);
+    *ppdiskbno = &indirect_block[filebno - NDIRECT];
+
     return 0;
 }
 
@@ -158,6 +183,19 @@ file_get_block(struct File *f, uint32_t filebno, char **blk) {
     // LAB 10: Your code here
 
     *blk = 0;
+    blockno_t *pdiskbno = NULL;
+    int res = file_block_walk(f, filebno, &pdiskbno, 1);
+    if (res < 0)
+        return res;
+
+    if (*pdiskbno == 0)
+    {
+        *pdiskbno = alloc_block();
+        if (*pdiskbno == 0)
+            return -E_NO_DISK;
+    }
+    
+    *blk = diskaddr(*pdiskbno);
 
     return 0;
 }
