@@ -113,15 +113,36 @@ devfile_read(struct Fd *fd, void *buf, size_t n) {
    * system server. */
 
     // LAB 10: Your code here:
+    ssize_t readsz = 0;
+
+    while (n > sizeof(fsipcbuf.readRet.ret_buf))
+    {
+        fsipcbuf.read.req_fileid = fd->fd_file.id;
+        fsipcbuf.read.req_n = sizeof(fsipcbuf.readRet.ret_buf);
+
+        ssize_t res = fsipc(FSREQ_READ, NULL);
+        if (res < 0)
+            return res;
+        memcpy(buf, fsipcbuf.readRet.ret_buf, res);
+        if (res < sizeof(fsipcbuf.readRet.ret_buf))
+            return readsz + res;
+
+        readsz += res;
+        buf += res;
+        n -= res;
+    }
+
     fsipcbuf.read.req_fileid = fd->fd_file.id;
     fsipcbuf.read.req_n = n;
 
-    int res = fsipc(FSREQ_READ, NULL);
-    if (res < 0) {
+    ssize_t res = fsipc(FSREQ_READ, NULL);
+    if (res < 0)
         return res;
-    }
-    memcpy (buf, fsipcbuf.readRet.ret_buf, res);
-    return res;
+
+    memcpy(buf, fsipcbuf.readRet.ret_buf, n);
+    readsz += res;
+
+    return readsz;
 }
 
 /* Write at most 'n' bytes from 'buf' to 'fd' at the current seek position.
