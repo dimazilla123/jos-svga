@@ -65,7 +65,6 @@ _pgfault_upcall:
     # ways as registers become unavailable as scratch space.
 
     # LAB 9: Your code here
-
     addq $16, %rsp
 	movq %rsp, %rax
 	movq 120(%rsp), %rbx
@@ -73,13 +72,14 @@ _pgfault_upcall:
 	movq %rcx, %rsp
     pushq %rbx
     movq %rax, %rsp
+
 	subq $8, %rcx
 	movq %rcx, 136(%rsp)
 
     # Restore the trap-time registers.  After you do this, you
     # can no longer modify any general-purpose registers (POPA).
     # LAB 9: Your code here
-    
+
     pop %r15
     pop %r14
     pop %r13

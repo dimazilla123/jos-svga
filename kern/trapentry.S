@@ -106,8 +106,8 @@ TRAPHANDLER_NOEC(simderr_thdlr, T_SIMDERR) #      SIMD floating point error
 
 TRAPHANDLER_NOEC(timer_thdlr,  IRQ_OFFSET + IRQ_TIMER)
 TRAPHANDLER_NOEC(clock_thdlr,  IRQ_OFFSET + IRQ_CLOCK)
-#TRAPHANDLER_NOEC(kbd_thdlr,    IRQ_OFFSET + IRQ_KBD)
-#TRAPHANDLER_NOEC(serial_thdlr, IRQ_OFFSET + IRQ_SERIAL)
+TRAPHANDLER_NOEC(kbd_thdlr,    IRQ_OFFSET + IRQ_KBD)
+TRAPHANDLER_NOEC(serial_thdlr, IRQ_OFFSET + IRQ_SERIAL)
 
 /* These are arbitrarily chosen, but with care not to overlap
  * processor defined exceptions or interrupt vectors.*/

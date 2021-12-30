@@ -113,17 +113,15 @@ devfile_read(struct Fd *fd, void *buf, size_t n) {
    * system server. */
 
     // LAB 10: Your code here:
-
     fsipcbuf.read.req_fileid = fd->fd_file.id;
     fsipcbuf.read.req_n = n;
 
-    int ret = fsipc(FSREQ_READ, NULL);
-    if (ret < 0)
-        return ret;
-
-    memcpy(buf, fsipcbuf.readRet.ret_buf, ret);
-
-    return ret;
+    int res = fsipc(FSREQ_READ, NULL);
+    if (res < 0) {
+        return res;
+    }
+    memcpy (buf, fsipcbuf.readRet.ret_buf, res);
+    return res;
 }
 
 /* Write at most 'n' bytes from 'buf' to 'fd' at the current seek position.
@@ -138,13 +136,11 @@ devfile_write(struct Fd *fd, const void *buf, size_t n) {
    * remember that write is always allowed to write *fewer*
    * bytes than requested. */
     // LAB 10: Your code here:
-
-    if (n > sizeof(fsipcbuf.write.req_buf))
+    if (n > sizeof(fsipcbuf.write.req_buf)) {
         n = sizeof(fsipcbuf.write.req_buf);
-
+    }
     fsipcbuf.write.req_fileid = fd->fd_file.id;
-    fsipcbuf.write.req_n = n;
-
+    fsipcbuf.write.req_n      = n;
     memcpy(fsipcbuf.write.req_buf, buf, n);
 
     return fsipc(FSREQ_WRITE, NULL);
@@ -155,10 +151,12 @@ static int
 devfile_stat(struct Fd *fd, struct Stat *st) {
     fsipcbuf.stat.req_fileid = fd->fd_file.id;
     int res = fsipc(FSREQ_STAT, NULL);
-    if (res < 0) return res;
+    if (res < 0) {
+        return res;
+    }
 
     strcpy(st->st_name, fsipcbuf.statRet.ret_name);
-    st->st_size = fsipcbuf.statRet.ret_size;
+    st->st_size  = fsipcbuf.statRet.ret_size;
     st->st_isdir = fsipcbuf.statRet.ret_isdir;
 
     return 0;

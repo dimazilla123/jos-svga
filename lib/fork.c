@@ -19,45 +19,33 @@ envid_t
 fork(void) {
     // LAB 9: Your code here
 
-    envid_t child = sys_exofork();
-    if (child < 0)
-        return child;
-
-    if (child == 0)
-    {
+    envid_t child_id = sys_exofork();
+    if (child_id < 0) {
+        return child_id;
+    }
+    if (child_id == 0) {
         thisenv = &envs[ENVX(sys_getenvid())];
         return 0;
     }
-
-    int res = sys_map_region(
-                            0,
-                            NULL,
-                            child,
-                            NULL,
-                            MAX_USER_ADDRESS,
-                            PROT_ALL | PROT_LAZY | PROT_COMBINE
-                            );
-    if (res < 0)
-        goto child_destroy;
-
-    res = sys_env_set_pgfault_upcall(
-                                     child,
-                                    envs[ENVX(sys_getenvid())].env_pgfault_upcall);
-    if (res < 0)
-        goto child_destroy;
-
-    res = sys_env_set_status(child, ENV_RUNNABLE);
-    if (res < 0)
-        goto child_destroy;
-
-    return child;
-
-child_destroy:;
-    
-    int res_chd = sys_env_destroy(child);
-    if (res_chd < 0)
+    int res = sys_map_region(0, NULL, child_id, NULL, MAX_USER_ADDRESS, PROT_ALL | PROT_LAZY | PROT_COMBINE);
+    if (res < 0) {
+        goto error;
+    }
+    res = sys_env_set_pgfault_upcall(child_id, envs[ENVX(sys_getenvid())].env_pgfault_upcall);
+    if (res < 0) {
+        goto error;
+    }
+    res = sys_env_set_status(child_id, ENV_RUNNABLE);
+    if (res < 0) {
+        goto error;
+    }
+    return child_id;
+error:
+    ;
+    int res2 = sys_env_destroy(child_id);
+    if (res2 < 0) {
         panic("Fork double fault");
-
+    }
     return res;
 }
 

@@ -165,6 +165,9 @@ trap_init(void) {
 
     // LAB 11: Your code here
 
+    idt[IRQ_OFFSET + IRQ_KBD]    = GATE(0, GD_KT, kbd_thdlr,    0);
+    idt[IRQ_OFFSET + IRQ_SERIAL] = GATE(0, GD_KT, serial_thdlr, 0);
+
     /* Per-CPU setup */
     trap_init_percpu();
 }
@@ -308,6 +311,12 @@ trap_dispatch(struct Trapframe *tf) {
         return;
         /* Handle keyboard and serial interrupts. */
         // LAB 11: Your code here
+    case IRQ_OFFSET + IRQ_KBD:
+        kbd_intr();
+        return;
+    case IRQ_OFFSET + IRQ_SERIAL:
+        serial_intr();
+        return;
     default:
         print_trapframe(tf);
         if (!(tf->tf_cs & 3))

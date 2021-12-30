@@ -22,31 +22,30 @@
 int32_t
 ipc_recv(envid_t *from_env_store, void *pg, size_t *size, int *perm_store) {
     // LAB 9: Your code here:
-
-    int res = sys_ipc_recv((!pg ? (void*)MAX_USER_ADDRESS : pg), (!size ? 0 : *size));
-
-    if (res < 0)
-    {
-        if (from_env_store)
+    int res = sys_ipc_recv(!pg ? (void*)MAX_USER_ADDRESS : pg, !size ? 0 : *size);
+    if (res < 0) {
+        if (from_env_store) {
             *from_env_store = 0;
-        if (perm_store)
+        }
+        if (perm_store) {
             *perm_store = 0;
-        if (size)
+        }
+        if (size) {
             *size = 0;
-
+        }
         return res;
     }
-
-    if (from_env_store)
+    if (from_env_store) {
         *from_env_store = thisenv->env_ipc_from;
-    if (perm_store)
+    }
+    if (perm_store) {
         *perm_store = thisenv->env_ipc_perm;
-    if (size)
+    }
+    if (size) {
         *size = thisenv->env_ipc_maxsz;
-
+    }
     return thisenv->env_ipc_value;
 }
-
 
 /* Send 'val' (and 'pg' with 'perm', if 'pg' is nonnull) to 'toenv'.
  * This function keeps trying until it succeeds.
@@ -59,19 +58,15 @@ ipc_recv(envid_t *from_env_store, void *pg, size_t *size, int *perm_store) {
 void
 ipc_send(envid_t to_env, uint32_t val, void *pg, size_t size, int perm) {
     // LAB 9: Your code here:
-
     int res = 0;
-    while ((res = sys_ipc_try_send(to_env, val, (!pg ? (void*)MAX_USER_ADDRESS : pg), size, perm)) < 0)
-    {
-        if (res != -E_IPC_NOT_RECV)
-            panic("ipc_send: %i", res);
-
+    while ((res = sys_ipc_try_send(to_env, val, !pg ? (void*)MAX_USER_ADDRESS : pg, size, perm)) < 0) {
+        if (res != -E_IPC_NOT_RECV) {
+            panic("sys_ipc_try_send failed: %i", res);
+        }
         sys_yield();
     }
-
     return;
 }
-
 
 /* Find the first environment of the given type.  We'll use this to
  * find special environments.
