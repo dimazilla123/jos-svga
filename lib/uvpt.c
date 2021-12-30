@@ -3,6 +3,10 @@
 #include <inc/lib.h>
 #include <inc/mmu.h>
 
+#define PS_1GB 1024 * 1024 * 1024
+#define PS_2MB 1024 * 1024 * 2
+#define PS_4KB PAGE_SIZE
+
 extern volatile pte_t uvpt[];     /* VA of "virtual page table" */
 extern volatile pde_t uvpd[];     /* VA of current page directory */
 extern volatile pdpe_t uvpdp[];   /* VA of current page directory pointer */
@@ -42,6 +46,7 @@ is_page_present(void *va) {
     return get_uvpt_entry(va) & PTE_P;
 }
 
+
 int
 foreach_shared_region(int (*fun)(void *start, void *end, void *arg), void *arg) {
     /* Calls fun() for every shared region */
@@ -49,7 +54,8 @@ foreach_shared_region(int (*fun)(void *start, void *end, void *arg), void *arg) 
 
     for (int pml4_it = 0; pml4_it < PML4_ENTRY_COUNT; ++pml4_it)
     {
-        pml4e_t pml4e = uvpml4[VPML4(MAKE_ADDR(pml4_it, 0, 0, 0, 0))];
+        uintptr_t pml4_addr = (uintptr_t)MAKE_ADDR(pml4_it, 0, 0, 0, 0);
+        pml4e_t pml4e = uvpml4[VPML4(pml4_addr)];
         if (!(pml4e & PTE_P))
             continue;
 
@@ -59,9 +65,10 @@ foreach_shared_region(int (*fun)(void *start, void *end, void *arg), void *arg) 
             pdpe_t pdpe = uvpdp[VPDP(pdpe_addr)];
             if (!(pdpe & PTE_P))
                 continue;
-            if (pdpe & PTE_PS & PTE_SHARE)
+            if (pdpe & PTE_PS)
             {
-                fun((void*)pdpe_addr, (void*)(pdpe_addr + PDP_SIZE), arg);
+                if (pdpe & PTE_SHARE)
+                    fun((void*)pdpe_addr, (void*)(pdpe_addr + PDP_SIZE), arg);
                 continue;
             }
 
@@ -71,28 +78,25 @@ foreach_shared_region(int (*fun)(void *start, void *end, void *arg), void *arg) 
                 pde_t pde = uvpd[VPD(pde_addr)];
                 if (!(pde & PTE_P))
                     continue;
-
-                if (pde & PTE_PS & PTE_SHARE)
-                {
-                    fun((void*)pde_addr, (void*)(pde_addr + PD_SIZE), arg);
+                    
+                if (pde & PTE_PS) {
+                    if (pde & PTE_SHARE)
+                        fun((void*)pde_addr, (void*)(pde_addr + PS_2MB), arg); 
                     continue;
                 }
-                for (int pt_it = 0; pt_it < PT_ENTRY_COUNT; ++pt_it)
-                {
+
+                for (int pt_it = 0; pt_it < PT_ENTRY_COUNT; pt_it++) {
                     uintptr_t pte_addr = (uintptr_t)MAKE_ADDR(pml4_it, pdp_it, pd_it, pt_it, 0);
                     pte_t pte = uvpt[VPT(pte_addr)];
-                    if (!(pte & PTE_P))
-                        continue;
-
-                    if (pte & PTE_PS & PTE_SHARE)
+                    if (pte & PTE_PS)
                     {
-                        fun((void*)pte_addr, (void*)(pte_addr + PT_SIZE), arg);
-                        continue;
+                        if (pte & PTE_SHARE)
+                            fun((void*)pte_addr, (void*)(pte_addr + PT_SIZE), arg);
                     }
                 }
             }
         }
     }
-
+    
     return 0;
 }
