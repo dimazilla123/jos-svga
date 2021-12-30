@@ -136,14 +136,34 @@ devfile_write(struct Fd *fd, const void *buf, size_t n) {
    * remember that write is always allowed to write *fewer*
    * bytes than requested. */
     // LAB 10: Your code here:
-    if (n > sizeof(fsipcbuf.write.req_buf)) {
-        n = sizeof(fsipcbuf.write.req_buf);
+
+    ssize_t written = 0;
+    while (n > sizeof(fsipcbuf.write.req_buf))
+    {
+        fsipcbuf.write.req_fileid = fd->fd_file.id;
+        fsipcbuf.write.req_n      = sizeof(fsipcbuf.write.req_buf);
+        memcpy(fsipcbuf.write.req_buf, buf, sizeof(fsipcbuf.write.req_buf));
+
+        ssize_t res = fsipc(FSREQ_WRITE, NULL);
+        if (res < 0 || res < sizeof(fsipcbuf.write.req_buf))
+            return res;
+
+        written += sizeof(fsipcbuf.write.req_buf);
+        buf += sizeof(fsipcbuf.write.req_buf);
+        n -= sizeof(fsipcbuf.write.req_buf);
     }
+
     fsipcbuf.write.req_fileid = fd->fd_file.id;
     fsipcbuf.write.req_n      = n;
     memcpy(fsipcbuf.write.req_buf, buf, n);
 
-    return fsipc(FSREQ_WRITE, NULL);
+    ssize_t res = fsipc(FSREQ_WRITE, NULL);
+    if (res < 0)
+        return res;
+
+    written += res;
+
+    return written;
 }
 
 /* Get file information */
