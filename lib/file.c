@@ -139,7 +139,7 @@ devfile_read(struct Fd *fd, void *buf, size_t n) {
     if (res < 0)
         return res;
 
-    memcpy(buf, fsipcbuf.readRet.ret_buf, n);
+    memcpy(buf, fsipcbuf.readRet.ret_buf, res);
     readsz += res;
 
     return readsz;
