@@ -83,7 +83,7 @@ GCCPREFIX := $(shell if x86_64-ispras-elf-objdump -i 2>&1 | grep '^elf64-x86-64$
 	echo "***" 1>&2; exit 1; fi)
 endif
 
-CC	:= $(GCCPREFIX)gcc -fno-pic -pipe
+CC	:= $(GCCPREFIX)gcc-10 -fno-pic -pipe
 AS	:= $(GCCPREFIX)as
 AR	:= $(GCCPREFIX)ar
 LD	:= $(GCCPREFIX)ld
@@ -98,7 +98,7 @@ GCC_LIB := $(shell $(CC) $(CFLAGS) -print-libgcc-file-name)
 endif
 
 # Native commands
-NCC	:= gcc $(CC_VER) -pipe
+NCC	:= gcc-10 $(CC_VER) -pipe
 NATIVE_CFLAGS := $(CFLAGS) $(DEFS) $(LABDEFS) -I$(TOP) -MD -Wall
 TAR	:= gtar
 PERL	:= perl
@@ -137,7 +137,7 @@ CFLAGS += -Wall -Wformat=2 -Wno-unused-function -Werror -g -gpubnames
 # Add -fno-stack-protector if the option exists.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 CFLAGS += $(EXTRA_CFLAGS)
-CFLAGS += -mno-sse -mno-sse2 -mno-mmx
+CFLAGS += -mno-sse -mno-sse2 -mno-mmx -O0
 
 
 KERN_SAN_CFLAGS :=
@@ -296,6 +296,7 @@ include prog/Makefrag
 else
 include user/Makefrag
 include fs/Makefrag
+include svga/Makefrag
 endif
 
 QEMUOPTS = -hda fat:rw:$(JOS_ESP) -serial mon:stdio -gdb tcp::$(GDBPORT)
