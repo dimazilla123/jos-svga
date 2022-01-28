@@ -170,6 +170,7 @@ i386_init(void) {
     ENV_CREATE(fs_fs, ENV_TYPE_FS);
 #endif
 
+    ENV_CREATE(svga_svga, ENV_TYPE_FS); // TODO: ENV_TYPE_DRIVER
 #if defined(TEST)
     /* Don't touch -- used by grading script! */
     ENV_CREATE(TEST, ENV_TYPE_USER);
