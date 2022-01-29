@@ -1,6 +1,8 @@
 OBJDIRS += svga
 
 SVGAOFILES := $(OBJDIR)/svga/svga.o \
+              $(OBJDIR)/svga/main.o \
+              $(OBJDIR)/svga/pci.o
 
 
 $(OBJDIR)/svga/%.o: svga/%.c svga/svga.h inc/lib.h $(OBJDIR)/.vars.USER_CFLAGS

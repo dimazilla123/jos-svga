@@ -29,7 +29,7 @@
  *    Virtual hardware definitions for the VMware SVGA II device.
  */
 
-#include <stddef.h>
+#include <stdint.h>
 
 typedef uint8_t uint8;
 typedef int8_t int8;
