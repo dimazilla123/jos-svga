@@ -1,4 +1,8 @@
-int f()
+#include <inc/stdio.h>
+
+int umain()
 {
-    return  1;
+    cprintf("SVGA loaded\n");
+
+    return 0;
 }

@@ -15,6 +15,3 @@ $(OBJDIR)/svga/svga: $(SVGAOFILES) $(OBJDIR)/lib/entry.o $(OBJDIR)/lib/libjos.a 
 		$(OBJDIR)/lib/entry.o $(SVGAOFILES) $(USER_EXTRA_OBJFILES) \
 		-L$(OBJDIR)/lib -ljos $(GCC_LIB)
 	$(V)$(OBJDUMP) -S $@ >$@.asm
-
-
-all: $(OBJDIR)/svga/svga
